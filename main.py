@@ -1,5 +1,9 @@
 import streamlit as st
 import ui
+import os
+
+LABELED_DB_PATH = "shapes"
+
 
 def main():
     '''
@@ -15,7 +19,10 @@ def main():
 
     # Render the selected page
     if choice == "Shape Viewer":
-        ui.shape_viewer()
+        if os.path.exists(LABELED_DB_PATH):
+            ui.shape_viewer(LABELED_DB_PATH)
+        else:
+            st.error("LabeledDB folder not found. Please check the path.")
     
     elif choice == "Similarity Search":
         uploaded_file = ui.search()  # Capture the uploaded file from the UI
@@ -24,6 +31,9 @@ def main():
         if uploaded_file is not None:
             # Here, you can add code to process or use the uploaded shape
             st.write(f"Processing file: {uploaded_file.name}")
+    
+    elif choice == "Statistics":
+        st.write("Statistics about the 3D objects will be added here")
 
 if __name__ == '__main__':
     main()
