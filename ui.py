@@ -29,9 +29,12 @@ def shape_viewer(labeled_db_path):
     # Get full path to the selected shape
     shape_path = os.path.join(labeled_db_path, selected_category, selected_shape)
 
+    # Checkbox to toggle mesh edges on and off
+    show_edges = st.checkbox("Show Mesh Edges", value=False)
+    
     # Button to visualize the shape
     if st.button("Visualize Shape"):
-        visualize_3d_shape(shape_path)
+        visualize_3d_shape(shape_path, show_edges)
     
     
 
