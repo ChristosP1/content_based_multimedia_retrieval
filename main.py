@@ -1,9 +1,14 @@
 import streamlit as st
-import ui.components as ui
+import ui
 
 def main():
+    '''
+    The 'main' function creates the UI which includes various functionalities.
+    Depending on the selected functionality, the corresponding code file is called.  
+    '''
+    
     # Set up the page title
-    st.title("3D Shape Retrieval System")
+    st.title("Content-Dased Multimedia Retrieval")
     
     # Show sidebar navigation
     choice = ui.show_sidebar()
