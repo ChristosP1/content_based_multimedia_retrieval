@@ -1,0 +1,6 @@
+mean: 35.98550724637681
+stdev: 24.36154923211817
+max: 143
+min: 15
+number of classes: 69
+total number of object files: 2483

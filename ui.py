@@ -19,7 +19,7 @@ def shape_viewer(labeled_db_path):
     selected_category = st.selectbox("Choose a category", categories)
     
     # Display all OFF files in the selected category
-    shape_files = [f for f in os.listdir(os.path.join(labeled_db_path, selected_category)) if f.endswith('.off')]
+    shape_files = [f for f in os.listdir(os.path.join(labeled_db_path, selected_category)) if f.endswith('.obj')]
     selected_shape = st.selectbox("Choose a shape file", shape_files)
     
     # Display selected shape info

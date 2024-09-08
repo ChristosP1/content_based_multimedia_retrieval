@@ -2,7 +2,7 @@ import streamlit as st
 import ui
 import os
 
-LABELED_DB_PATH = "shapes"
+LABELED_DB_PATH = "original_shapes"
 
 
 def main():
