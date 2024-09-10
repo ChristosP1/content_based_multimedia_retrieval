@@ -33,7 +33,7 @@ def main():
             # Here, you can add code to process or use the uploaded shape
             st.write(f"Processing file: {uploaded_file.name}")
     
-    elif choice == "Statistics":
+    elif choice == "Global Statistics":
         st.write("Statistics about the 3D objects will be added here :sunglasses:")
     
     elif choice == "Observations":
