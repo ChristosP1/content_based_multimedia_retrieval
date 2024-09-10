@@ -1,27 +1,27 @@
 import streamlit as st
-import open3d as o3d
 import plotly.graph_objects as go
+import trimesh
 import numpy as np
 
 
 def load_off_file(filepath):
     '''
-    Load OFF file using Open3D
+    Load OFF file using Trimesh instead of Open3D
     :param filepath: The path of the selected 3D object
     '''
-    # Load the mesh from the OFF file
-    mesh = o3d.io.read_triangle_mesh(filepath, enable_post_processing=True)
+    # Load the mesh from the OFF file using Trimesh
+    mesh = trimesh.load(filepath, file_type='obj')
     return mesh
 
 
 def convert_mesh_to_plotly(mesh, show_edges):
     '''
-    Convert Open3D mesh to Plotly format
-    :param mesh: The 3D object mesh that was previously loaded using Open3D 
+    Convert Trimesh mesh to Plotly format
+    :param mesh: The 3D object mesh that was previously loaded using Trimesh 
     '''
-    # Get vertices and triangles from the Open3D mesh
-    vertices = np.asarray(mesh.vertices)
-    triangles = np.asarray(mesh.triangles)
+    # Get vertices and triangles from the Trimesh mesh
+    vertices = mesh.vertices
+    triangles = mesh.faces
 
     # Create Plotly mesh trace
     trace = go.Mesh3d(
