@@ -1,27 +1,43 @@
 import streamlit as st
 import plotly.graph_objects as go
 import trimesh
-import numpy as np
+import time
 
 
-def load_off_file(filepath):
+def update_progress(progress_callback, progress_value, delay=0.3):
+    """
+    Update the progress bar and yield control back to Streamlit.
+    :param progress_callback: Function to update progress.
+    :param progress_value: The progress value to set.
+    :param delay: Time to sleep to simulate yielding control.
+    """
+    if progress_callback:
+        progress_callback(progress_value)
+        time.sleep(delay)  # Yield control to Streamlit to refresh UI
+
+
+def load_object_file(filepath):
     '''
-    Load OFF file using Trimesh instead of Open3D
+    Load OBJ file using Trimesh
     :param filepath: The path of the selected 3D object
     '''
-    # Load the mesh from the OFF file using Trimesh
+    # Load the mesh from the OBJ file using Trimesh
     mesh = trimesh.load(filepath, file_type='obj')
     return mesh
 
 
-def convert_mesh_to_plotly(mesh, show_edges):
+def convert_mesh_to_plotly(mesh, show_edges, progress_callback=None):
     '''
     Convert Trimesh mesh to Plotly format
     :param mesh: The 3D object mesh that was previously loaded using Trimesh 
+    :param progress_callback: Function to update progress
     '''
     # Get vertices and triangles from the Trimesh mesh
     vertices = mesh.vertices
     triangles = mesh.faces
+
+    # Simulate progress during the conversion process
+    update_progress(progress_callback, 30)  # 30% done after extracting vertices and triangles
 
     # Create Plotly mesh trace
     trace = go.Mesh3d(
@@ -37,6 +53,8 @@ def convert_mesh_to_plotly(mesh, show_edges):
     )
     
     traces = [trace]  # Start with the surface trace
+
+    update_progress(progress_callback, 60)  # 60% done after creating the trace
     
     if show_edges:
         # Add edges as lines between the vertices
@@ -62,18 +80,28 @@ def convert_mesh_to_plotly(mesh, show_edges):
             showlegend=False
         )
         traces.append(edge_trace)  # Add edges trace
+
+        update_progress(progress_callback, 100)  # 100% done after edges are processed
     
     return traces
 
 
-def visualize_3d_shape(filepath, show_edges):
+def visualize_3d_shape(filepath, show_edges, progress_callback=None):
     '''
     Render the 3D mesh using Plotly in Streamlit
     :param filepath: The path of the selected 3D object
     :param show_edges: Boolean to indicate whether to show mesh edges
     '''
-    mesh = load_off_file(filepath)  # Load the OFF file
-    traces = convert_mesh_to_plotly(mesh, show_edges)  # Convert mesh to Plotly format
+    # Initialize a progress bar
+    progress_bar = st.progress(0)
+
+    # Load the mesh file
+    mesh = load_object_file(filepath)
+    
+    update_progress(progress_callback, 10)  # 10% done after loading the mesh
+
+    # Convert the mesh to Plotly format with a progress callback
+    traces = convert_mesh_to_plotly(mesh, show_edges, progress_callback=lambda progress: progress_bar.progress(progress))
 
     # Define layout for the border (rectangle around the chart)
     layout = go.Layout(
@@ -96,6 +124,9 @@ def visualize_3d_shape(filepath, show_edges):
 
     # Create Plotly figure with the trace and layout (with border)
     fig = go.Figure(data=traces, layout=layout)
-
+    
     # Render the figure in Streamlit
     st.plotly_chart(fig)
+
+    # Clear the progress bar once the work is done
+    progress_bar.empty()
