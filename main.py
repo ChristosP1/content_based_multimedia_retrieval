@@ -1,6 +1,6 @@
 import streamlit as st
 import ui
-import ui_shape_viewer, ui_search_engine
+import ui_shape_viewer, ui_search_engine, ui_statistics
 import os
 
 LABELED_DB_PATH = "original_shapes"
@@ -34,7 +34,7 @@ def main():
             st.write(f"Processing file: {uploaded_file.name}")
     
     elif choice == "Global Statistics":
-        st.write("Statistics about the 3D objects will be added here :sunglasses:")
+        ui_statistics.global_stats()
     
     elif choice == "Observations":
         st.write("Observations about the 3D objects will be added here :sunglasses:")
