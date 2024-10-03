@@ -3,7 +3,8 @@ import ui
 import ui_shape_viewer, ui_search_engine, ui_statistics
 import os
 
-LABELED_DB_PATH = "original_shapes"
+ORIGINAL_SHAPES_PATH = 'datasets/dataset_snippet_small'
+RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_small_resample'
 
 
 def main():
@@ -20,8 +21,8 @@ def main():
 
     # Render the selected page
     if choice == "Shape Viewer":
-        if os.path.exists(LABELED_DB_PATH):
-            ui_shape_viewer.shape_viewer(LABELED_DB_PATH)
+        if os.path.exists(ORIGINAL_SHAPES_PATH):
+            ui_shape_viewer.shape_viewer(ORIGINAL_SHAPES_PATH, RESAMPLED_SHAPES_PATH)
         else:
             st.error("LabeledDB folder not found. Please check the path.")
     
