@@ -142,6 +142,13 @@ def normalize_single_shape(row, normalized_root):
         mesh = scale_to_unit(mesh)      # Step 2: Scale the mesh to fit within a unit cube
         mesh = pca_align(mesh)          # Step 3: Align the mesh using PCA
         mesh = moment_flip(mesh)        # Step 4: Flip the mesh based on moments of inertia
+        
+        # Ensure normals are consistent and fix them
+        if not mesh.is_winding_consistent:
+            mesh.fix_normals()
+
+        # Remove degenerate faces (optional, but useful)
+        mesh.remove_degenerate_faces()
 
         # Ensure the directory for normalized file exists
         os.makedirs(os.path.dirname(normalized_file_path), exist_ok=True)
@@ -183,10 +190,16 @@ if __name__ == "__main__":
     # Create directories and CSV paths 
     create_directory(NORMALIZED_SHAPES_PATH, overwrite=OVERWRITE, logger=logger)
     normalized_csv_path = os.path.join(OUTPUT_PATH, "shapes_data_normalized.csv")
+    times_path = os.path.join(OUTPUTS_DATA_PATH, "times.csv")
+    
+    times_df = pd.read_csv(os.path.join(OUTPUTS_DATA_PATH, "times.csv"))
+    
+    normalization_time = {}
+    start_normalization = time.time()
     
     # --------------------------------------------------- NORMALIZE SHAPES ---------------------------------------------------- #    
     if not os.path.exists(normalized_csv_path) or OVERWRITE:
-        logger.info("# Step 4. # Normalize shapes...")
+        logger.info("# Step 14: Normalize shapes...")
         
         remeshed_shapes_df = pd.read_csv('outputs/shapes_data_remeshed.csv')
         normalize_shapes_parallel(remeshed_shapes_df, NORMALIZED_SHAPES_PATH, num_processes=PROCESSORS)
@@ -195,9 +208,13 @@ if __name__ == "__main__":
         normalized_shapes_df = pd.DataFrame(normalized_data)
         
         normalized_shapes_df.to_csv(normalized_csv_path, index=False)
-        logger.info(f"Normalized shapes data saved to '{normalized_csv_path}'")
+        # logger.info(f"-----> Normalized shapes data saved to '{normalized_csv_path}'")
 
         plot_distribution(normalized_shapes_df, "Normalized distribution", OUTPUTS_PLOTS_PATH)
+        
+    end_normalization = time.time()
     
-    # End time
-    total_end_time = time.time()
+    times_df['normalization'] = end_normalization - start_normalization
+    
+    times_df.to_csv(times_path, index=False)
+    

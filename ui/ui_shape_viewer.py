@@ -8,7 +8,7 @@ def shape_viewer(original_db_path, resampled_db_path):
     :param original_db_path: The path of the root directory of the original shapes
     :param resampled_db_path: The path of the root directory of the resampled shapes
     '''
-    st.subheader("3D Shape Viewer")
+    st.subheader("Select and view objects")
     
     # Choose if you want to view the original or the resampled database
     show_resampled = st.toggle("Final objects")
@@ -24,15 +24,15 @@ def shape_viewer(original_db_path, resampled_db_path):
     selected_shape = st.selectbox("Choose a shape file", shape_files)
     
     # Display selected shape info
-    st.text(f"Displaying shape: {selected_shape}")
-    st.text(f"Category: {selected_category}")
+    st.text(f"Displaying shape: '{selected_shape}'   |   Category: '{selected_category}'")
+    # st.text(f"Category: {selected_category}")
 
     # Get full path to the selected shape
     shape_path = os.path.join(db_path, selected_category, selected_shape)
-
-    # Checkbox to toggle mesh edges on and off
-    show_edges = st.checkbox("Show Mesh Edges", value=False)
+    
+    # Dropdown to select rendering mode
+    rendering_mode = st.radio("Rendering Mode", options=["Shaded", "Shaded + Edges", "Wireframe"], horizontal=True)
     
     # Button to visualize the shape
     if st.button("Visualize Shape"):
-        visualize_3d_shape(shape_path, show_edges)
+        visualize_3d_shape(shape_path, rendering_mode)

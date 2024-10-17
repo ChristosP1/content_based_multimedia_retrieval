@@ -4,7 +4,7 @@ import streamlit as st
 def global_stats():
     # Load global statistics from CSV
     global_stats_original = pd.read_csv(r'outputs/data/global_statistics_original.csv')
-    global_stats_final = pd.read_csv(r'outputs/data/global_statistics_final.csv')
+    global_stats_final = pd.read_csv(r'outputs/data/global_statistics_remeshed_cleaned.csv')
 
 
     # -------------------------------------------------------------------------------------------------------------------------

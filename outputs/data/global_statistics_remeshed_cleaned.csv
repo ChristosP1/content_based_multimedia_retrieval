@@ -1,0 +1,2 @@
+total_shapes,mean_vertices,std_vertices,mean_faces,std_faces,is_manifold,outlier_low_count,outlier_high_count
+436,5067.472477064221,728.8701107338717,9786.238532110092,1652.0268381615708,71,0,0

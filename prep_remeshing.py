@@ -5,8 +5,9 @@ import pandas as pd
 import math
 import multiprocessing as mp
 import numpy as np
+import time
 
-from prep_resampling import analyze_dataset, create_directory, plot_distribution
+from prep_resampling import analyze_dataset, create_directory, plot_distribution, clean_dataset_parallel, compute_and_save_statistics
 
 
 OVERWRITE = True
@@ -20,46 +21,12 @@ logger = logging.getLogger()
 
 # REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_small_remeshed'
 REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_medium_remeshed'
+CLEANED_REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_medium_remeshed_cleaned'
 
 OUTPUT_PATH = 'outputs'
 OUTPUTS_DATA_PATH = 'outputs/data'
 OUTPUTS_PLOTS_PATH = 'outputs/plots'
 
-
-# def adjust_mesh_complexity(mesh, lower_bound=4000, upper_bound=6000, max_iterations=5):
-#     """
-#     Refine low-poly meshes and simplify high-poly meshes to stay within a given vertex range.
-
-#     Parameters:
-#         mesh (trimesh.Trimesh): The mesh object to adjust.
-#         lower_bound (int): The lower vertex limit (default: 4000).
-#         upper_bound (int): The upper vertex limit (default: 6000).
-#         max_iterations (int): Maximum number of refinement iterations allowed.
-
-#     Returns:
-#         trimesh.Trimesh: The adjusted mesh object.
-#     """
-#     current_vertices = mesh.current_mesh().vertex_number()
-
-#     for _ in range(max_iterations):
-#         current_vertices = mesh.current_mesh().vertex_number()
-
-#         if current_vertices < lower_bound:
-#             # If the vertex count is too low, subdivide the mesh
-#             mesh.apply_filter('meshing_surface_subdivision_catmull_clark')
-#             print(f"Subdividing mesh to increase vertex count: {current_vertices} -> {mesh.current_mesh().vertex_number()}")
-
-#         elif current_vertices > upper_bound:
-#             # If the vertex count is too high, simplify the mesh
-#             mesh.apply_filter('meshing_decimation_quadric_edge_collapse',
-#             targetperc=0.9,
-#             )
-#             print(f"Simplifying mesh to reduce vertex count: {current_vertices} -> {mesh.current_mesh().vertex_number()}")
-
-#         else:
-#             break
-
-#     return mesh
 
 def isotropic_remesh(ms, target_vertex_count=5000, initial_scaling_factor=0.8, min_scaling_factor=0.1, decrement=0.1):
     """
@@ -111,22 +78,6 @@ def isotropic_remesh(ms, target_vertex_count=5000, initial_scaling_factor=0.8, m
         ms.apply_filter('meshing_decimation_quadric_edge_collapse',
             targetfacenum=faces,
         )
-        
-        
-        # try:
-        #     # Check the final vertex count
-        #     vertex_count = ms.current_mesh().vertex_number()
-
-        #     # If the vertex count is out of the target range, apply refinement
-        #     if vertex_count < 4000 or vertex_count > 6000:
-        #         print(f"Refining mesh with vertex count {vertex_count}")
-        #         adjust_mesh_complexity(ms, lower_bound=4000, upper_bound=6000)
-        #         return ms.current_mesh()
-
-        # except Exception as e:
-        #     print(f"An error occurred during remeshing and refinement: {e}")
-        #     return None
-        
 
         remeshed_mesh = ms.current_mesh()
         return remeshed_mesh
@@ -168,7 +119,7 @@ def apply_remeshing(df_chunk, remeshed_root):
 
             # Save the resampled mesh
             ms.save_current_mesh(remeshed_file_path)
-            logger.info(f"Saved remeshed file to: {remeshed_file_path}")
+            # logger.info(f"Saved remeshed file to: {remeshed_file_path}")
 
         except Exception as e:
             logger.error(f"Error processing mesh {file_path}: {str(e)}")
@@ -187,7 +138,7 @@ def parallel_remeshing(df, remeshed_root, num_processes=8):
     # Split the dataframe into chunks, one for each process
     df_chunks = np.array_split(df, num_processes)
 
-    logger.info("Start the processes")
+    # logger.info("Start the processes")
     # Use multiprocessing to remesh in parallel
     with mp.Pool(processes=num_processes) as pool:
         pool.starmap(apply_remeshing, [(chunk, remeshed_root) for chunk in df_chunks])
@@ -197,19 +148,54 @@ def parallel_remeshing(df, remeshed_root, num_processes=8):
 if __name__ == "__main__":
     
     create_directory(REMESHED_SHAPES_PATH, overwrite=OVERWRITE, logger=logger)
-    remeshed_csv_path = os.path.join(OUTPUT_PATH, "shapes_data_remeshed.csv")
+    remeshed_data_path = os.path.join(OUTPUT_PATH, "shapes_data_remeshed.csv")
+    remeshed_cleaned_data_path = os.path.join(OUTPUT_PATH, "shapes_data_remeshed_cleaned.csv")
+    global_statistics_remeshed_cleaned_csv_path = os.path.join(OUTPUTS_DATA_PATH, "global_statistics_remeshed_cleaned.csv")
+    classes_txt_path = os.path.join(OUTPUTS_DATA_PATH, "classes.txt")
+    times_path = os.path.join(OUTPUTS_DATA_PATH, "times.csv")
     
-    if not os.path.exists(remeshed_csv_path) or OVERWRITE:
-        logger.info("# Step 5. # Remesh shapes...")
+    times_df = pd.read_csv(os.path.join(OUTPUTS_DATA_PATH, "times.csv"))
+    
+    start_remeshing = time.time()
+    # ----------------------------------------------- REMESH CLEANED SHAPES ------------------------------------------------ #
+    if not os.path.exists(remeshed_data_path) or OVERWRITE:
+        logger.info("# Step 10: Remesh shapes...")
                 
-        resampled_shapes_df = pd.read_csv('outputs/shapes_data_resampled.csv')
+        resampled_cleaned_shapes_df = pd.read_csv('outputs/shapes_data_resampled_cleaned.csv')
         
-        parallel_remeshing(resampled_shapes_df, REMESHED_SHAPES_PATH, num_processes=PROCESSORS)       
+        parallel_remeshing(resampled_cleaned_shapes_df, REMESHED_SHAPES_PATH, num_processes=PROCESSORS)       
         
         remeshed_data = analyze_dataset(REMESHED_SHAPES_PATH)
         remeshed_shapes_df = pd.DataFrame(remeshed_data)
         
-        remeshed_shapes_df.to_csv(remeshed_csv_path, index=False)
-        logger.info(f"Remeshed shapes data saved to '{remeshed_csv_path}'")
+        remeshed_shapes_df.to_csv(remeshed_data_path, index=False)
+        # logger.info(f"-----> Remeshed shapes data saved to '{remeshed_data_path}'")
         
         plot_distribution(remeshed_shapes_df, "Remeshed distribution", OUTPUTS_PLOTS_PATH)
+    
+    # ----------------------------------------------------- CLEAN RESAMPLED MESHES ------------------------------------------------------ #    
+    logger.info("# Step 11: Clean remeshed meshes...")
+        
+    clean_dataset_parallel(remeshed_shapes_df, CLEANED_REMESHED_SHAPES_PATH, num_processes=PROCESSORS)
+    
+    # logger.info(f"-----> Remeshed & Cleaned shapes saved to '{CLEANED_REMESHED_SHAPES_PATH}'")
+
+    # ----------------------------------------------- ANALYZE CLEANED SHAPES ------------------------------------------------ #
+    logger.info("# Step 12: Analyzing Remeshed & Cleaned dataset and collecting statistics...")
+    remeshed_cleaned_shapes_data = analyze_dataset(CLEANED_REMESHED_SHAPES_PATH)
+    remeshed_cleaned_shapes_data_df = pd.DataFrame(remeshed_cleaned_shapes_data)
+    remeshed_cleaned_shapes_data_df.to_csv(remeshed_cleaned_data_path, index=False)
+    # logger.info(f"-----> Resampled & Cleaned shapes data saved to '{remeshed_cleaned_data_path}'")
+
+    plot_distribution(remeshed_cleaned_shapes_data_df, "After Remeshing and Cleaning", OUTPUTS_PLOTS_PATH)
+    
+    # --------------------------------------------- SAVE CLEANED & RESAMPLED GLOBAL STATISTICS ---------------------------------------------- # 
+    logger.info("# Step 13: Compute Global Statistics from Remeshed & Cleaned shapes and collecting statistics...")   
+    compute_and_save_statistics(remeshed_cleaned_shapes_data_df, global_statistics_remeshed_cleaned_csv_path, classes_txt_path)
+    # logger.info(f"-----> Global statistics for remeshed and cleaned data saved to '{global_statistics_remeshed_cleaned_csv_path}'")
+    
+    end_remeshing = time.time()
+    
+    times_df['remeshing'] = end_remeshing - start_remeshing
+    
+    times_df.to_csv(times_path, index=False)

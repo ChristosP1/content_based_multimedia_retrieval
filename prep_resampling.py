@@ -47,13 +47,12 @@ OUTPUTS_PLOTS_PATH = 'outputs/plots'
 
 # DATASET_PATH = 'datasets/dataset_snippet_small'
 # RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_small_resampled'
-# NORMALIZED_SHAPES_PATH = 'datasets/dataset_snippet_small_normalized'
-# REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_small_remeshed'
 
 DATASET_PATH = 'datasets/dataset_snippet_medium'
+CLEANED_SHAPES_PATH = 'datasets/dataset_snippet_medium_cleaned'
 RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_medium_resampled'
-NORMALIZED_SHAPES_PATH = 'datasets/dataset_snippet_medium_normalized'
-REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_medium_remeshed'
+CLEANED_RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_medium_resampled_cleaned'
+
 
 
 # Function to handle directory creation with optional overwrite
@@ -65,14 +64,15 @@ def create_directory(path, overwrite=False, logger=logger):
         path (str): The path of the directory to create.
         overwrite (bool): Whether to overwrite the directory if it exists.
     """
-    if overwrite and os.path.exists(path):
+    # if overwrite and os.path.exists(path):
         # Remove the directory and its contents if overwrite is True
-        shutil.rmtree(path)
-        logger.info(f"Directory '{path}' existed and was removed for overwriting.")
+        # shutil.rmtree(path)
+        # logger.info(f"Directory '{path}' existed and was removed for overwriting.")
     
     # Now create the directory
-    os.makedirs(path, exist_ok=True)
-    logger.info(f"Directory '{path}' created.")
+    if not os.path.exists(path):
+        os.makedirs(path, exist_ok=True)
+    # logger.info(f"Directory '{path}' created.")
 
 
 def analyze_shape(filepath=False, mesh=None):
@@ -143,51 +143,6 @@ def analyze_dataset(labeled_db_path):
     return results
 
 
-def analyze_mesh(mesh):
-    """ 
-    Analyze a 3D mesh using Trimesh and return its properties.
-    
-    Parameters:
-        mesh (trimesh.Trimesh): The input mesh to analyze.
-        
-    Returns:
-        dict: A dictionary containing the number of vertices, faces, face type, bounding box, 
-              manifold status, and outlier information based on thresholds.
-        None: If there is an error during analysis.
-    """
-    
-    try: 
-        num_vertices = len(mesh.vertices)  # Number of vertices
-        num_faces = len(mesh.faces)  # Number of faces (triangles)
-        face_type = "Triangles"  # Face type (triangles by default for OBJ)
-        
-        # Axis-aligned bounding box (AABB)
-        aabb_min, aabb_max = mesh.bounds
-        bounding_box = {
-            "min_bound": aabb_min.tolist(),  # Min corner of the bounding box
-            "max_bound": aabb_max.tolist()   # Max corner of the bounding box
-        }
-
-        is_manifold = mesh.is_watertight  # Has holes or not
-        outlier_low = True if num_vertices <= LOW_THRESHOLD else False  # Low outlier
-        outlier_high = True if num_vertices >= HIGH_THRESHOLD else False  # High outlier
-
-        # Return dictionary of extracted data
-        return {
-            "vertices": num_vertices,
-            "faces": num_faces,
-            "face_type": face_type,
-            "bounding_box": bounding_box,
-            "is_manifold": is_manifold,
-            "outlier_low": outlier_low,
-            "outlier_high": outlier_high
-        }
-        
-    except Exception as e:
-        print(f"Error analyzing mesh: {str(e)}")
-        return None
-
-
 def compute_and_save_statistics(shapes_data_df, statistics_csv_path='outputs/data/global_statistics.csv', classes_txt_path='outputs/data/classes.txt'):
     """
     Compute statistics on the vertices and faces columns, and save the global statistics and unique object classes to files.
@@ -224,14 +179,13 @@ def compute_and_save_statistics(shapes_data_df, statistics_csv_path='outputs/dat
 
     # Save the global statistics to a CSV file
     pd.DataFrame([global_statistics]).to_csv(statistics_csv_path, index=False)
-    logger.info(f"Global statistics saved to {statistics_csv_path}")
+    logger.info(f"-----> Global statistics saved to {statistics_csv_path}")
 
     # Save the list of unique classes to a text file
     classes_list = shapes_data_df['obj_class'].unique()
     with open(classes_txt_path, 'w') as f:
         for obj_class in classes_list:
             f.write(f"{obj_class}\n")
-    logger.info(f"Classes list saved to {classes_txt_path}")
 
 
 def plot_distribution(df, title, plots_dir, bins=30):
@@ -251,7 +205,6 @@ def plot_distribution(df, title, plots_dir, bins=30):
     # Construct the full file path
     filename = f"{title}.png"
     save_plot_path = os.path.join(plots_dir, filename)
-    logger.info(f"Saving plot to {save_plot_path}")
     
     # Save the plot using the full path
     plt.savefig(save_plot_path)
@@ -292,48 +245,49 @@ def clean_mesh(mesh):
         return None
 
 
-def clean_single_mesh(row):
+def clean_single_mesh(row, cleaned_meshes_root):
     """ 
-    Process a single mesh, clean it, and update its properties.
+    Process a single mesh, clean it, save the cleaned mesh, and update its properties.
     
     Parameters:
         row (pd.Series): A row from the DataFrame containing file paths and metadata.
+        cleaned_meshes_root (str): Root directory where the cleaned meshes will be saved.
         
     Returns:
         pd.Series: Updated row with cleaned mesh data.
         None: If an error occurs or the mesh cannot be cleaned.
     """
     
+    obj_class = row['obj_class']
+    file_name = row['file_name']
     file_path = row['file_path']
+    cleaned_file_path = os.path.join(cleaned_meshes_root, obj_class, file_name)
+    
     try:
         # Load the mesh using Trimesh
         mesh = trimesh.load(file_path)
         
-        # Clean mesh
+        # Clean the mesh
         cleaned_mesh = clean_mesh(mesh)
         
         if cleaned_mesh is None:
             return None
         
-        # Analyze cleaned mesh (update stats after cleaning)
-        new_data = analyze_shape(mesh=cleaned_mesh)
+        # Ensure the directory for cleaned file exists
+        os.makedirs(os.path.dirname(cleaned_file_path), exist_ok=True)
         
-        # Update the row with the cleaned mesh data
-        row['is_manifold'] = new_data['is_manifold']
-        row['bounding_box'] = new_data['bounding_box']
-        row['vertices'] = new_data['vertices']
-        row['faces'] = new_data['faces']
-        row['outlier_high'] = new_data['outlier_high']
-        row['outlier_low'] = new_data['outlier_low']
+        # Save the cleaned mesh
+        cleaned_mesh.export(cleaned_file_path)
         
-        return row
+        return cleaned_file_path
 
     except Exception as e:
-        logger.error(f"Error processing mesh {file_path}: {e}")
+        logger.error(f"Error cleaning mesh {file_path}: {str(e)}")
         return None
 
 
-def clean_dataset_parallel(df, num_processes=16):
+
+def clean_dataset_parallel(df, cleaned_meshes_root, num_processes=16):
     """
     Parallelizes the cleaning process of the dataset.
     
@@ -345,12 +299,13 @@ def clean_dataset_parallel(df, num_processes=16):
         pd.DataFrame: DataFrame of valid cleaned meshes.
     """
     with mp.Pool(processes=num_processes) as pool:
-        results = pool.map(clean_single_mesh, [row for _, row in df.iterrows()])
+        # Parallelize the cleaning of each mesh row
+        results = pool.starmap(clean_single_mesh, [(row, cleaned_meshes_root) for _, row in df.iterrows()])
 
     # Filter out any None values (i.e., failed meshes)
-    results = [res for res in results if res is not None]
-
-    return pd.DataFrame(results)
+    successful_paths = [res for res in results if res is not None]
+    
+    return successful_paths
 
 
 def adjust_mesh_complexity(mesh, max_iterations=10):
@@ -445,69 +400,78 @@ if __name__ == "__main__":
     create_directory(OUTPUT_PATH, overwrite=OVERWRITE, logger=logger)
     create_directory(OUTPUTS_DATA_PATH, overwrite=OVERWRITE, logger=logger)
     create_directory(OUTPUTS_PLOTS_PATH, overwrite=OVERWRITE, logger=logger)
+    create_directory(CLEANED_SHAPES_PATH, overwrite=OVERWRITE, logger=logger)
     create_directory(RESAMPLED_SHAPES_PATH, overwrite=OVERWRITE, logger=logger)
+    create_directory(CLEANED_RESAMPLED_SHAPES_PATH, overwrite=OVERWRITE, logger=logger)
 
     original_csv_path = os.path.join(OUTPUT_PATH, "shapes_data.csv")
+    resampled_cleaned_csv_path = os.path.join(OUTPUT_PATH, "shapes_data_resampled_cleaned.csv")
     resampled_csv_path = os.path.join(OUTPUT_PATH, "shapes_data_resampled.csv")
     cleaned_csv_path = os.path.join(OUTPUT_PATH, "shapes_data_cleaned.csv")
+    resampled_cleaned_csv_path = os.path.join(OUTPUT_PATH, "shapes_data_resampled_cleaned.csv")
     global_statistics_original_csv_path = os.path.join(OUTPUTS_DATA_PATH, "global_statistics_original.csv")
-    global_statistics_final_csv_path = os.path.join(OUTPUTS_DATA_PATH, "global_statistics_final.csv")
+    global_statistics_resampled_csv_path = os.path.join(OUTPUTS_DATA_PATH, "global_statistics_resampled.csv")
+    global_statistics_resampled_cleaned_csv_path = os.path.join(OUTPUTS_DATA_PATH, "global_statistics_resampled_cleaned.csv")
     classes_txt_path = os.path.join(OUTPUTS_DATA_PATH, "classes.txt")
+    times_path = os.path.join(OUTPUTS_DATA_PATH, "times.csv")
 
-
-    # Start time
-    total_start_time = time.time()
+    times = {}
+    start_resampling = time.time()
     # ------------------------------------------------ ANALYZE ORIGINAL SHAPES ------------------------------------------------ #
     if not os.path.exists(original_csv_path) or OVERWRITE:
-        logger.info("# Step 1. # Analyzing database and collecting statistics...")
+        logger.info("# Step 1: Analyzing Original database and collecting statistics...")
         shapes_data = analyze_dataset(DATASET_PATH)
         shapes_data_df = pd.DataFrame(shapes_data)
         shapes_data_df.to_csv(original_csv_path, index=False)
-        logger.info(f"Original shapes data saved to '{original_csv_path}'")
+        # logger.info(f"-----> Original shapes data saved to '{original_csv_path}'")
     else:
         shapes_data_df = pd.read_csv(original_csv_path)
-        logger.info(f"# Step 1. # Loaded existing original shapes data from '{original_csv_path}'")
+        logger.info(f"# Step 1: Loaded existing Original shapes data from '{original_csv_path}'")
 
     plot_distribution(shapes_data_df, "Initial distribution", OUTPUTS_PLOTS_PATH)
-    
     
     # -------------------------------------------- SAVE INITIAL GLOBAL STATISTICS --------------------------------------------- #    
     compute_and_save_statistics(shapes_data_df, global_statistics_original_csv_path, classes_txt_path)
     
-    
-    # ----------------------------------------------------- CLEAN SHAPES ------------------------------------------------------ #    
-    logger.info("# Step 2. # Clean meshes...")
+    # ----------------------------------------------------- CLEAN MESHES ------------------------------------------------------ #    
+    logger.info("# Step 2: Clean Original meshes...")
     shapes_data_df = pd.read_csv(original_csv_path)
         
     # Start processing the meshes
-    shapes_data_cleaned_df = clean_dataset_parallel(shapes_data_df, num_processes=PROCESSORS)
-    shapes_data_cleaned_df.to_csv(cleaned_csv_path, index=False)
-    logger.info(f"Cleaned shapes data saved to '{cleaned_csv_path}'")
+    clean_dataset_parallel(shapes_data_df, CLEANED_SHAPES_PATH, num_processes=PROCESSORS)
     
-    plot_distribution(shapes_data_cleaned_df, "After Cleaning", OUTPUTS_PLOTS_PATH)
-    
+    # logger.info(f"-----> Cleaned shapes saved to '{CLEANED_SHAPES_PATH}'")
+
+    # ----------------------------------------------- ANALYZE CLEANED SHAPES ------------------------------------------------ #
+    logger.info("# Step 3: Analyzing Cleaned dataset and collecting statistics...")
+    cleaned_shapes_data = analyze_dataset(CLEANED_SHAPES_PATH)
+    cleaned_shapes_data_df = pd.DataFrame(cleaned_shapes_data)
+    cleaned_shapes_data_df.to_csv(cleaned_csv_path, index=False)
+    # logger.info(f"-----> Cleaned shapes data saved to '{resampled_csv_path}'")
+
+    plot_distribution(cleaned_shapes_data_df, "After Cleaning", OUTPUTS_PLOTS_PATH)
     
     # ---------------------------------------------------- RESAMPLE SHAPES ---------------------------------------------------- #    
     if not os.path.exists(RESAMPLED_SHAPES_PATH) or OVERWRITE:
-        logger.info("# Step 3. # Resample meshes...")
-        process_meshes_parallel(shapes_data_cleaned_df, RESAMPLED_SHAPES_PATH, num_processes=PROCESSORS)
-    
+        logger.info("# Step 4: Resample Cleaned meshes...")
+        process_meshes_parallel(cleaned_shapes_data_df, RESAMPLED_SHAPES_PATH, num_processes=PROCESSORS)
+        # logger.info(f"-----> Resampled shapes saved to '{RESAMPLED_SHAPES_PATH}'")
     
     # ----------------------------------------------- ANALYZE RESAMPLED SHAPES ------------------------------------------------ #    
     if not os.path.exists(resampled_csv_path) or OVERWRITE:
-        logger.info("# Step 4. # Analyzing resampled database and collecting statistics...")
+        logger.info("# Step 5.1: Analyzing Resampled dataset and collecting statistics...")
         resampled_shapes_data = analyze_dataset(RESAMPLED_SHAPES_PATH)
         resampled_shapes_data_df = pd.DataFrame(resampled_shapes_data)
         resampled_shapes_data_df.to_csv(resampled_csv_path, index=False)
-        logger.info(f"Original shapes data saved to '{resampled_csv_path}'")
+        # logger.info(f"-----> Resampled shapes data saved to '{resampled_csv_path}'")
     else:
         resampled_shapes_data_df = pd.read_csv(resampled_csv_path)
-        logger.info(f"# Step 4. # Loaded existing resampled shapes data from '{resampled_csv_path}'")
+        logger.info(f"# Step 5.1: Loaded existing resampled shapes data from '{resampled_csv_path}'")
 
     plot_distribution(resampled_shapes_data_df, "After Reshaping", OUTPUTS_PLOTS_PATH)
     
-    
-    # --------------------------------------------- REMOVE SHAPES STILL OUTLIERS ---------------------------------------------- #    
+    # --------------------------------------------- REMOVE SHAPES STILL OUTLIERS ---------------------------------------------- #   
+    logger.info(f"# Step 5.2: Remove shapes that are still outliers from the Resampled meshes...") 
     remaining_shapes_df = resampled_shapes_data_df[(resampled_shapes_data_df['vertices'] >= LOWER_BOUND) & 
                                                (resampled_shapes_data_df['vertices'] <= UPPER_BOUND)]
     
@@ -523,21 +487,41 @@ if __name__ == "__main__":
         else:
             logger.info(f"File not found: {file_path}")
 
-    logger.info(f"Deleted {outliers_df.shape[0]} files")
+    # logger.info(f"-----> Deleted {outliers_df.shape[0]} files")
     
     plot_distribution(remaining_shapes_df, "After removing outliers", OUTPUTS_PLOTS_PATH)
     
+    # --------------------------------------------- SAVE RESAMPLED GLOBAL STATISTICS ---------------------------------------------- # 
+    logger.info(f"# Step 6: Compute global statistics for the Resampled meshes...")    
+    compute_and_save_statistics(remaining_shapes_df, global_statistics_resampled_csv_path, classes_txt_path)
     
-    # --------------------------------------------- SAVE FINAL GLOBAL STATISTICS ---------------------------------------------- #    
-    compute_and_save_statistics(remaining_shapes_df, global_statistics_final_csv_path, classes_txt_path)
+    # ----------------------------------------------------- CLEAN RESAMPLED MESHES ------------------------------------------------------ #    
+    logger.info("# Step 7: Clean Resampled meshes...")
+        
+    # Start processing the meshes
+    clean_dataset_parallel(remaining_shapes_df, CLEANED_RESAMPLED_SHAPES_PATH, num_processes=PROCESSORS)
     
+    # logger.info(f"-----> Resampled & Cleaned shapes saved to '{CLEANED_RESAMPLED_SHAPES_PATH}'")
+
+    # ----------------------------------------------- ANALYZE CLEANED SHAPES ------------------------------------------------ #
+    logger.info("# Step 8: Analyzing Resampled & Cleaned dataset and collecting statistics...")
+    resampled_cleaned_shapes_data = analyze_dataset(CLEANED_RESAMPLED_SHAPES_PATH)
+    resampled_cleaned_shapes_data_df = pd.DataFrame(resampled_cleaned_shapes_data)
+    resampled_cleaned_shapes_data_df.to_csv(resampled_cleaned_csv_path, index=False)
+    # logger.info(f"-----> Resampled & Cleaned shapes data saved to '{resampled_cleaned_csv_path}'")
+
+    plot_distribution(resampled_cleaned_shapes_data_df, "After Resampling and Cleaning", OUTPUTS_PLOTS_PATH)
     
-    # End time
-    total_end_time = time.time()
+    # --------------------------------------------- SAVE CLEANED & RESAMPLED GLOBAL STATISTICS ---------------------------------------------- # 
+    logger.info("# Step 9: Compute Global Statistics from Resampled & Cleaned shapes and collecting statistics...")   
+    compute_and_save_statistics(resampled_cleaned_shapes_data_df, global_statistics_resampled_cleaned_csv_path, classes_txt_path)
+    # logger.info(f"-----> Global statistics for resampled and cleaned data saved to '{global_statistics_resampled_cleaned_csv_path}'")
 
-    logger.info(f"Total runing time {int(total_end_time-total_start_time)}")
-
-
+    end_resampling = time.time()
+    
+    times['resampling'] = end_resampling - start_resampling
+    times_df = pd.DataFrame([times])
+    times_df.to_csv(times_path, index=False)
 
 
 
