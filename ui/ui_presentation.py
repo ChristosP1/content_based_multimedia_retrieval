@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objs as go
 from trimesh import load as load_object_file
 import numpy as np
+import os
 
 def load_data(csv_file):
     return pd.read_csv(csv_file)
@@ -34,7 +35,7 @@ def show_global_statistics(df):
         "Std Vertices": stats_row['std_vertices'],
         "Mean Faces": stats_row['mean_faces'],
         "Std Faces": stats_row['std_faces'],
-        "Manifold Count": stats_row['is_manifold'],
+        "Watertight Count": stats_row['is_watertight'],
         "Outlier Low Count": stats_row['outlier_low_count'],
         "Outlier High Count": stats_row['outlier_high_count']
     }
@@ -45,7 +46,7 @@ def show_global_statistics(df):
         st.metric(label="Total Shapes", value=int(stats["Total Shapes"]))
         st.metric(label="Mean Vertices", value=f"{stats['Mean Vertices']:.2f}")
     with col2:
-        st.metric(label="Manifold Count", value=int(stats["Manifold Count"]))
+        st.metric(label="Watertight Count", value=int(stats["Watertight Count"]))
         st.metric(label="Mean Faces", value=f"{stats['Mean Faces']:.2f}")
     with col3:
         st.metric(label="Outlier Low Count", value=int(stats["Outlier Low Count"]))
@@ -69,7 +70,7 @@ def convert_mesh_to_plotly(mesh):
         j=triangles[:, 1],  
         k=triangles[:, 2],  
         color='#ffc72e',  
-        opacity=0.5,  
+        opacity=1,  
         flatshading=True)
     
     traces = [trace]  
@@ -181,9 +182,9 @@ def create_voxel_cube(x, y, z, size):
 
     return vertices, faces
 
-def create_voxel_plot(voxel_centers, voxel_size=0.1):
+def create_voxel_plot(voxel_centers, voxel_size=0.01):
     """
-    Create a Plotly 3D plot of voxels represented as cubes.
+    Create a Plotly 3D plot of voxels represented as cubes with different colors.
     :param voxel_centers: A list of voxel center coordinates (x, y, z)
     :param voxel_size: The size of each voxel cube
     :return: A Plotly Mesh3d figure
@@ -192,9 +193,10 @@ def create_voxel_plot(voxel_centers, voxel_size=0.1):
     all_i = []
     all_j = []
     all_k = []
+    all_colors = []
     offset = 0
 
-    for center in voxel_centers:
+    for idx, center in enumerate(voxel_centers):
         x, y, z = center
         vertices, faces = create_voxel_cube(x, y, z, voxel_size)
 
@@ -206,6 +208,14 @@ def create_voxel_plot(voxel_centers, voxel_size=0.1):
         all_j.extend(faces[:, 1] + offset)
         all_k.extend(faces[:, 2] + offset)
 
+        # color_value = np.random.rand(3) 
+        # voxel_color = [color_value] * len(vertices)  
+        # all_colors.extend(voxel_color)  
+        
+        gray_value = np.random.rand()  
+        voxel_color = [[gray_value, gray_value, gray_value]] * len(vertices) 
+        all_colors.extend(voxel_color) 
+
         # Update offset for the next set of vertices
         offset += len(vertices)
 
@@ -214,8 +224,9 @@ def create_voxel_plot(voxel_centers, voxel_size=0.1):
     all_i = np.array(all_i)
     all_j = np.array(all_j)
     all_k = np.array(all_k)
+    all_colors = np.array(all_colors)  # Colors for each voxel's vertices
 
-    # Create the 3D mesh trace
+    # Create the 3D mesh trace with vertex colors
     trace = go.Mesh3d(
         x=all_vertices[:, 0],
         y=all_vertices[:, 1],
@@ -223,7 +234,7 @@ def create_voxel_plot(voxel_centers, voxel_size=0.1):
         i=all_i,
         j=all_j,
         k=all_k,
-        color='blue',
+        vertexcolor=all_colors,  # Set vertex colors
         opacity=1,
         flatshading=True
     )
@@ -243,6 +254,7 @@ def create_voxel_plot(voxel_centers, voxel_size=0.1):
     fig = go.Figure(data=[trace], layout=layout)
     return fig
 
+
 def plot_voxel_3d_shape_interface(file_path, pitch=0.01, voxel_size=0.01):
     """
     Plot a 3D voxel representation of the mesh as actual cubes in Streamlit using Plotly.
@@ -250,21 +262,32 @@ def plot_voxel_3d_shape_interface(file_path, pitch=0.01, voxel_size=0.01):
     :param pitch: The size of the voxels (distance between centers)
     :param voxel_size: The size of each voxel cube
     """
-    if file_path is not None:
+    # Create a filename for saving the voxelized data (based on the original file name)
+    voxel_file_path = f"outputs/data/_voxelized_pitch_{pitch}.npy"
+    
+    # Check if the voxelized data already exists
+    if os.path.exists(voxel_file_path):
+        # Load the saved voxel centers
+        print("Voxelized mesh exists!")
+        voxel_centers = np.load(voxel_file_path)
+    else:
         # Load the mesh using Trimesh
         mesh = load_object_file(file_path)
         
         # Convert the mesh to voxels
         voxels = mesh.voxelized(pitch)
         voxel_centers = voxels.points
+        
+        # Save the voxel centers for future use
+        np.save(voxel_file_path, voxel_centers)
+    
+    # Create the voxel plot
+    fig = create_voxel_plot(voxel_centers, voxel_size)
 
-        # Create the voxel plot
-        fig = create_voxel_plot(voxel_centers, voxel_size)
-
-        # Display the plot in Streamlit
-        col1, col2, col3 = st.columns([1, 10, 1])
-        with col2:
-            st.plotly_chart(fig)
+    # Display the plot in Streamlit
+    col1, col2, col3 = st.columns([1, 10, 1])
+    with col2:
+        st.plotly_chart(fig)
 
 
 def create_techniques_tools_table(stage='prep1'):
@@ -340,37 +363,59 @@ def create_techniques_tools_table(stage='prep1'):
     
     
 
-def create_descriptor_table():
+def create_descriptor_table(type="global"):
     """
     Create and display a table with global descriptors and their descriptions.
     """
-    # Define the global descriptors and their descriptions
-    descriptors = [
-        'Volume', 
-        'Surface Area', 
-        'Diameter', 
-        'Eccentricity', 
-        'Compactness', 
-        'Rectangularity', 
-        'Convexity', 
-        'Sphericity', 
-        'Elongation'
-    ]
+    if type == "global":
+        # Define the global descriptors and their descriptions
+        descriptors = [
+            'Volume', 
+            'Surface Area', 
+            'Diameter', 
+            'Eccentricity', 
+            'Compactness', 
+            'Rectangularity', 
+            'Convexity', 
+            'Sphericity', 
+            'Elongation'
+        ]
 
-    descriptions = [
-        'The total volume occupied by the 3D object.',
-        'The total surface area of the 3D object.',
-        'The maximum distance between any two points in the 3D object.',
-        'Measures how much the shape deviates from being a perfect sphere.',
-        'A ratio of volume to surface area that indicates how compact the shape is.',
-        'The ratio of the object’s bounding box volume to its actual volume.',
-        'The ratio of the convex hull volume to the actual volume of the object.',
-        'Measures how spherical the object is, based on its volume and surface area.',
-        'Measures how much the object is stretched along its principal axes.'
-    ]
+        descriptions = [
+            'The total volume occupied by the 3D object.',
+            'The total surface area of the 3D object.',
+            'The maximum distance between any two points in the 3D object.',
+            'Measures how much the shape deviates from being a perfect sphere.',
+            'A ratio of volume to surface area that indicates how compact the shape is.',
+            'The ratio of the object’s bounding box volume to its actual volume.',
+            'The ratio of the convex hull volume to the actual volume of the object.',
+            'Measures how spherical the object is, based on its volume and surface area.',
+            'Measures how much the object is stretched along its principal axes.'
+        ]
 
-    # Create a pandas DataFrame to organize the descriptors and their descriptions
-    data = {'Global Descriptor': descriptors, 'Description': descriptions}
+        # Create a pandas DataFrame to organize the descriptors and their descriptions
+        data = {'Global Descriptor': descriptors, 'Description': descriptions}
+        
+    elif type == "local":
+        # Define the global descriptors and their descriptions
+        descriptors = [
+            'A3', 
+            'D1', 
+            'D2', 
+            'D3', 
+            'D4', 
+        ]
+
+        descriptions = [
+            'The total volume occupied by the 3D object.',
+            'The total surface area of the 3D object.',
+            'The maximum distance between any two points in the 3D object.',
+            'Measures how much the shape deviates from being a perfect sphere.',
+            'A ratio of volume to surface area that indicates how compact the shape is.',
+        ]
+
+        # Create a pandas DataFrame to organize the descriptors and their descriptions
+        data = {'Global Descriptor': descriptors, 'Description': descriptions}
     df = pd.DataFrame(data)
 
     # Display the table in Streamlit
@@ -436,7 +481,16 @@ def create_spider_plots(df, class1, class2, descriptors):
 
 def show_time_elapsed(stage='resampling'):
     times_df = pd.read_csv('outputs/data/times.csv')
-    st.markdown(f"### Process time: {times_df[stage].values[0]:.2f} sec  |  {(times_df[stage].values[0]/60):.2f} min")
+    st.markdown(f"### ~ Process time: {times_df[stage].values[0]:.2f} sec  |  {(times_df[stage].values[0]/60):.2f} min ~")
+    
+
+def show_images_side_by_side(path1, path2):
+    col1, col2, col3 = st.columns([8, 1, 8])
+    with col1:
+        st.image(path1, caption="Before norm.")
+    with col3:
+        st.image(path2, caption="After norm.")
+    
 
     
 ################################################################################################################################
@@ -459,7 +513,8 @@ def presentation():
     original_global_statistics_df = load_data('outputs/data/global_statistics_original.csv')
     
     create_techniques_tools_table(stage='prep1')
-        
+    
+    st.markdown("###### ")
     plot_histograms(original_shapes_data_df)
     show_global_statistics(original_global_statistics_df)
     
@@ -474,6 +529,7 @@ def presentation():
     create_techniques_tools_table(stage='prep1')
     show_time_elapsed('resampling')
     
+    st.markdown("##### ")
     plot_histograms(original_shapes_data_df)
     show_global_statistics(original_global_statistics_df)
     plot_3d_shape_interface('datasets/dataset_snippet_medium_resampled_cleaned/Car/m1548.obj')
@@ -487,6 +543,7 @@ def presentation():
     create_techniques_tools_table(stage='prep1')
     show_time_elapsed('remeshing')
     
+    st.markdown("##### ")
     plot_histograms(original_shapes_data_df)
     show_global_statistics(original_global_statistics_df)
     plot_3d_shape_interface('datasets/dataset_snippet_medium_remeshed_cleaned/Car/m1548.obj')
@@ -500,8 +557,16 @@ def presentation():
     create_techniques_tools_table(stage='prep1')
     show_time_elapsed('normalization')
     
-    plot_histograms(original_shapes_data_df)
-    show_global_statistics(original_global_statistics_df)
+    st.markdown("##### ")
+    st.markdown("### Mesh centroids before and after normalization ")
+    st.markdown("###### ")
+    show_images_side_by_side("outputs/plots/before_norm_centroids_5_final.png", "outputs/plots/after_norm_centroids_5_final.png")
+    
+    st.markdown("##### ")
+    
+    # plot_histograms(original_shapes_data_df)
+    # show_global_statistics(original_global_statistics_df)
+    
     plot_3d_shape_interface('datasets/dataset_snippet_medium_normalized/Car/m1548.obj')
     st.markdown("---")
     st.markdown("---")
@@ -515,26 +580,35 @@ def presentation():
     st.title("Feature Extraction")
     
     st.markdown("## 1. Global Descriptors")
-    create_descriptor_table()
-    show_time_elapsed('global_desc')
+    create_descriptor_table("global")
+    try:
+        show_time_elapsed('global_desc') 
+        st.markdown("##### ")
+    except:
+        print("Time for global descriptors does not exist")
     
-    global_descriptors_df = pd.read_csv('outputs/data/standardized_global_descriptors.csv')
+    global_descriptors_df = pd.read_csv('outputs/data/global_descriptors_standardized.csv')
     class1 = 'Car'
     class2 = 'House'
     descriptors = ['surface_area', 'diameter', 'eccentricity', 'compactness', 'rectangularity']
-    
     st.markdown("### Example of global descriptor distribution (Car vs House)")
     create_spider_plots(global_descriptors_df, class1, class2, descriptors)
     
-    
+    st.markdown("### ")
+    st.markdown("### Solution for the watertight meshes: Voxelization")
     plot_voxel_3d_shape_interface('datasets/dataset_snippet_medium_normalized/Car/m1548.obj')
     st.markdown("---")
     
     # -------------------- LOCAL DESCRIPTORS -------------------- #
     st.markdown("## 2. Local Descriptors")
-
-
-    show_time_elapsed('local_desc')
+    create_descriptor_table("local")
+    
+    try:
+        show_time_elapsed('local_desc') 
+        st.markdown("##### ")
+    except:
+        print("Time for local descriptors does not exist")
+    
 
 
 

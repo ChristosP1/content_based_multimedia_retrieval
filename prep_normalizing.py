@@ -40,10 +40,9 @@ def center_at_origin(mesh):
 
 def scale_to_unit(mesh):
     """Scales the mesh so that it fits tightly in a unit-sized cube."""
-    
     scaled_mesh = mesh.copy()
     maxsize = np.max(mesh.bounding_box.extents)  # find max coordinate magnitude in any dimension
-    scaled_mesh.apply_scale((1 / maxsize, 1 / maxsize, 1 / maxsize))
+    scaled_mesh.apply_scale(1 / maxsize)
     return scaled_mesh
 
 
@@ -115,6 +114,40 @@ def moment_flip(mesh):
         mesh.vertices[index] = np.multiply(mesh.vertices[index], (sx, sy, sz))
 
     return mesh
+
+
+def normalize_input_shape(mesh):
+    """
+    Process and normalize the input shape in the search engine (mesh).
+    
+    Parameters:
+        row (pd.Series): A row from the DataFrame containing file paths and metadata.
+        normalized_root (str): Root directory where the normalized meshes will be saved.
+    
+    Returns:
+        str: The file path if successful, or None if an error occurs.
+    """
+
+    try:
+
+        # Apply the normalization steps
+        mesh = center_at_origin(mesh)   # Step 1: Center the mesh at the origin
+        mesh = scale_to_unit(mesh)      # Step 2: Scale the mesh to fit within a unit cube
+        mesh = pca_align(mesh)          # Step 3: Align the mesh using PCA
+        mesh = moment_flip(mesh)        # Step 4: Flip the mesh based on moments of inertia
+        
+        # Ensure normals are consistent and fix them
+        if not mesh.is_winding_consistent:
+            mesh.fix_normals()
+
+        # Remove degenerate faces (optional, but useful)
+        mesh.remove_degenerate_faces()
+
+        return mesh
+
+    except Exception as e:
+        logger.error(f"Error: {str(e)}")
+        return None
 
 
 def normalize_single_shape(row, normalized_root):

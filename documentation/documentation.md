@@ -254,7 +254,7 @@ In this feature extraction process, two major types of descriptors are computed:
   <li>Shape Property Descriptors: These are statistical measures based on random geometric properties of the shape, such as distances between vertices or angles between random points. Since they produce distributions of values rather than a single value, we reduce these distributions to a fixed-length descriptor using histograms.</li>
 </ol>
 
-This representation will allow us to build a shape retrieval or classification engine that can efficiently compare 3D objects based on their extracted characteristics. Each descriptor provides unique insights into different aspects of the shape, and together they form a comprehensive description of the object.
+This representation will allow us to build a shape retrieval engine that can efficiently compare 3D objects based on their extracted characteristics. Each descriptor provides unique insights into different aspects of the shape, and together they form a comprehensive description of the object.
 
 ### 7.1. Global Descriptors
 The global descriptors provide single real values that capture the overall characteristics of the 3D shapes. In the feature extraction process, we compute several key global descriptors, including **volume**, **surface area**, **diameter**, **eccendricity**, **compactness**, **rectangularity**, **convexity**, **sphericity** and **elongation**. Each of these descriptors is adapted for 3D shapes and provides a different perspective on the geometry of the object.
@@ -272,7 +272,7 @@ The total surface area of the mesh is the sum of the areas of all triangles:
 
 ⁡`(math operation here)`
 
-where n is the total number of triangles in the mesh.
+where **n** is the total number of triangles in the mesh.
 
 The Trimesh library handles the computation by summing the areas of all faces in the mesh, and it returns the total surface area. This computation is straightforward and accurate for watertight and non-watertight meshes alike, as long as the mesh is well-defined.
 
@@ -293,7 +293,11 @@ Here:
 
 
 #### 7.1.3. Compactness
+The **compactness** of a 3D shape is a measure of how closely the shape approximates a sphere. The formula for compactness is defined as the ratio of the cube of the surface area to the square of the volume, normalized by the factor **36𝜋**, which corresponds to a perfect sphere. The formula used to compute compactness is:
 
+⁡`(math operation here)`
+
+This formula ensures that a perfect sphere has a compactness value of 1. As the shape deviates from being spherical, the compactness value increases. Shapes that are elongated or irregular will have a much higher compactness value, as their surface area becomes disproportionately large compared to their volume. Compactness is particularly useful for distinguishing between compact, smooth shapes (like spheres or cubes) and more complex or elongated objects.
 
 
 #### 7.1.4. Rectangularity
@@ -377,7 +381,11 @@ where **𝑣𝑖** is the position vector of the **𝑖-th** vertex and **𝑣ˉ
 
 
 #### 7.1.8. Sphericity
+The sphericity of a shape measures how close the shape is to a perfect sphere, and it is derived from the compactness. Sphericity is simply the inverse of compactness, normalized to ensure that its value lies between 0 and 1, with 1 indicating a perfect sphere and lower values indicating less spherical shapes. The formula for sphericity is:
 
+⁡`(math operation here)`
+
+This guarantees that the sphericity will be capped at 1 for a perfect sphere. For irregular or highly elongated objects, the sphericity will approach zero.
 
 
 
@@ -398,7 +406,167 @@ By comparing the longest and second-longest dimensions, we get a measure of how 
 
 
 
-### 7.1. Shape Property Descriptors
+### 7.2. Shape Property Descriptors
+For the feature extraction phase, I computed several shape property descriptors to capture various geometric characteristics of the 3D objects in my dataset. The descriptors were calculated based on random sampling of points from the mesh, and histograms were used to represent each descriptor’s distribution across the mesh. 
+
+### 7.2.1. Freedman-Diaconis rule
+For consistency, the bin sizes for the histograms were calculated using the Freedman-Diaconis rule, ensuring that each type of descriptor (A3, D1, D2, D3, D4) had a uniform number of bins across all the objects. This way we ensure that the histogram bins are neither too wide (losing detail) nor too narrow (introducing noise). The Freedman-Diaconis rule computes the bin width 
+ℎ using the following formula:
+
+⁡`(math operation here)`
+
+Where:
+<ol>
+  <li>IQR is the interquartile range of the data (the difference between the 75th and 25th percentiles). </li>
+
+  ⁡`(math operation here)`
+
+  <li>n is the number of samples in the data.</li>
+</ol>
+
+Using the Freedman-Diaconis rule ensures that the histograms for each descriptor (A3, D1, D2, D3, D4) have the appropriate number of bins to capture meaningful information about the object's geometric properties. Consistent binning is applied across all objects in the dataset for each descriptor, ensuring that the A3 descriptor has the same number of bins across all objects, and similarly for the D1, D2, D3, and D4 descriptors.
+
+### 7.2.2. Sampling Method
+For all the shape property descriptors (A3, D1, D2, D3, D4), I used a consistent approach to sample random points from each mesh. This method involved selecting 2000 random samples from the vertices of the mesh, with the number of points used per sample varying depending on the descriptor being computed.
+
+The sample_points function was applied to all the descriptors, but each descriptor required a different number of points per sample:
+
+<ol>
+  <li>A3: Three random points were sampled to compute the angle between them.</li>
+  <li>D1: One point was sampled to measure the distance from the barycenter.</li>
+  <li>D2: Two points were sampled to compute the distance between them.</li>
+  <li>D3: Three points were sampled to compute the area of the triangle they formed.</li>
+  <li>D4: Four points were sampled to compute the volume of the tetrahedron formed by the vertices.</li>
+</ol>
+
+Despite the variation in the number of points required for each descriptor, the total number of 2000 samples was kept the same across all descriptors, ensuring consistent statistical representation of each shape's geometric properties.
+
+
+### 7.2.3. Histogram ranges
+The histogram ranges for each shape property descriptor are defined based on the geometric characteristics of the mesh.
+
+#### Histogram ranges of A3
+The histogram range for A3 is set from 0 to 180 degrees, as the angle between any three points in a 3D space can vary from 0° (points forming a straight line) to 180° (flat triangle).
+
+#### Histogram ranges of D1
+The range for D1 is set **from 0 to the diagonal of the mesh’s bounding box**. This distance, `∥bounds[1]−bounds[0]∥`, represents the maximum possible distance within the mesh.
+
+
+#### Histogram ranges of D2
+The histogram range of D2 is from 0 to the diagonal of the bounding box. This is because the diagonal of the bounding box represents the maximum possible distance between any two points on the mesh. This range is appropriate for D2, as it effectively captures the longest distance between two vertices in the mesh.
+
+#### Histogram ranges of D3
+The maximum possible area of a triangle on the surface of the mesh is formed by three points located as far apart as possible. In the case of a 3D object, this will be when the points are positioned along the bounding box's diagonal or along the bounding box edges.
+
+The maximum area can be approximated by considering the largest triangle that could fit within the bounding box. The largest triangle area would be one that uses the longest sides of the bounding box. For a rectangular bounding box with dimensions **𝑙**, **𝑤**, and **ℎ**, the largest possible triangle would have its vertices aligned along two edges or diagonals. So the maximum possible area 𝐴max can be approximated as:
+
+⁡`(math operation here)`
+
+Where the bounding box diagonal **𝑑box** is given by:
+
+⁡`(math operation here)`
+
+Thus, the maximum range for D3 can be:
+
+⁡`(math operation here)`
+
+
+#### Histogram ranges of D4
+The maximum volume of a tetrahedron is formed when the four vertices are located as far apart as possible, ideally along the corners of the bounding box. The largest tetrahedron would have vertices aligned with the bounding box's dimensions, resulting in the volume being a fraction of the bounding box volume.
+
+For a rectangular bounding box with dimensions **𝑙**, **𝑤**, and **ℎ**, the maximum volume **𝑉max** of a tetrahedron can be approximated as:
+
+⁡`(math operation here)`
+
+This is because the volume of a tetrahedron is 1/6 of the parallelepiped volume, and the bounding box defines the limits of the object's spread in space.
+
+
+### 7.2.4. Descriptor computation
+
+#### A3 Descriptor: Angle Between Three Random Vertices
+The **A3 descriptor** measures the angles formed by randomly selected triplets of vertices on the mesh. This descriptor captures information about the local curvature of the surface, providing insights into the smoothness or sharpness of the object.
+
+To compute **A3**, for each sample, three random vertices **𝑣1**, **𝑣2**, **𝑣3** are selected from the mesh. The angle **𝜃** between the two vectors formed by these points is calculated using the dot product formula:
+
+⁡`(math operation here)`
+
+Once the cosine of the angle is computed, the angle **𝜃** is obtained by applying the arccosine function and converting the result to degrees:
+
+⁡`(math operation here)`
+
+This normalized histogram provides a statistical representation of the angles in the mesh, capturing important curvature features of the object.
+
+
+#### D1 Descriptor: Distance Between the Barycenter and Random Vertices
+The **D1 descriptor** measures the distance between the centroid (barycenter) of the mesh and randomly sampled vertices on the surface of the mesh. This descriptor captures how spread out the shape is in relation to its center, providing insight into the overall geometry and size distribution of the object.
+
+To compute the D1 descriptor, the centroid **𝐶** of the mesh is calculated as the average position of all the vertices. Then, for each sample, one random vertex **𝑉** is selected, and the Euclidean distance 𝑑 between the centroid and the vertex is computed using the formula:
+
+⁡`(math operation here)`
+
+The normalized histogram represents the distribution of distances between the centroid and the surface vertices, describing how concentrated or dispersed the object is relative to its center.
+
+
+#### D2 Descriptor: Distance Between Two Random Vertices
+The **D2 descriptor** measures the Euclidean distance between pairs of randomly sampled vertices on the mesh. This descriptor provides a sense of the overall shape and structure of the object by examining how far apart points on the surface are from each other.
+
+For each sample, two random vertices **𝑉1** and **𝑉2** are selected, and the distance 𝑑 between them is calculated using:
+
+⁡`(math operation here)`
+
+The resulting normalized histogram summarizes the spread of points across the mesh, providing insights into the object's overall scale and surface structure.
+
+
+#### D3 Descriptor: Area of Triangle Formed by Three Random Vertices
+The **D3 descriptor** measures the area of triangles formed by randomly selecting three vertices from the mesh. This descriptor captures the local surface geometry by evaluating how large or small the triangular regions of the mesh are.
+
+For each sample, three random vertices **𝑣1**, **𝑣2**, **𝑣3** are selected, and the area **𝐴** of the triangle formed by these points is computed using the formula for the area of a triangle in 3D space. In this implementation, the Trimesh library’s built-in triangle area computation is used, which internally computes the area using the following formula:
+
+⁡`(math operation here)`
+
+Where **𝜃** is the angle between the vectors **𝑣2 − 𝑣1** and **𝑣2 − 𝑣1**. Alternatively, the cross product method can be used to calculate the area directly:
+
+⁡`(math operation here)`
+
+The normalized histogram reflects the distribution of triangle areas, offering insights into the surface complexity and curvature of the object.
+
+
+#### D4 Descriptor: Volume of Tetrahedron Formed by Four Random Vertices
+The **D4 descriptor** calculates the volume of a tetrahedron formed by randomly selecting four vertices from the mesh. This descriptor helps capture the 3D structural complexity of the object by examining how the vertices relate to each other in three-dimensional space.
+
+For each sample, **four random vertices** **𝑣1**, **𝑣2**, **𝑣3**, **𝑣4** are selected, and the volume **𝑉** of the tetrahedron formed by these points is computed using the **determinant** of a matrix formed by the vectors between the vertices:
+
+⁡`(math operation here)`
+
+Where the determinant of the matrix gives the scalar volume of the tetrahedron. The cube root of the volume is often taken to keep the units consistent and comparable to other descriptors.
+
+The resulting normalized histogram represents the distribution of tetrahedron volumes across the mesh, reflecting the 3D complexity of the shape.
+
+
+
+## 8. Retrieval
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
