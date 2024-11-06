@@ -1,2 +1,2 @@
-total_shapes,mean_vertices,std_vertices,mean_faces,std_faces,is_manifold,outlier_low_count,outlier_high_count
+total_shapes,mean_vertices,std_vertices,mean_faces,std_faces,is_watertight,outlier_low_count,outlier_high_count
 436,4969.369266055046,545.9631951473946,12984.577981651377,7840.917847156601,72,0,0

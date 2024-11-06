@@ -4,7 +4,7 @@ import time
 
 if __name__ == "__main__":
     # List of scripts to run
-    scripts = ['desc_global.py', 'desc_local.py']
+    scripts = ['desc_global.py', 'desc_local.py', 'desc_weighting.py']
 
     # Use the same Python interpreter as the current environment
     python_exec = sys.executable

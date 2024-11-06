@@ -133,7 +133,7 @@ def convert_mesh_to_plotly(mesh, rendering_mode, progress_callback=None):
 
 
 
-def visualize_3d_shape(filepath, rendering_mode, progress_callback=None):
+def visualize_3d_shape(filepath, rendering_mode, progress_callback=None, width=700, height=700, displayModeBar=True):
     '''
     Render the 3D mesh using Plotly in Streamlit
     :param filepath: The path of the selected 3D object
@@ -153,8 +153,8 @@ def visualize_3d_shape(filepath, rendering_mode, progress_callback=None):
 
     # Define layout for the border (rectangle around the chart)
     layout = go.Layout(
-        width=700,  # Set the width of the plot
-        height=700,  # Set the height of the plot
+        width=width,  # Set the width of the plot
+        height=height,  # Set the height of the plot
         scene=dict(
             xaxis=dict(showbackground=False, showgrid=True, zeroline=False, showspikes=False),
             yaxis=dict(showbackground=False, showgrid=True, zeroline=False, showspikes=False),
@@ -175,9 +175,9 @@ def visualize_3d_shape(filepath, rendering_mode, progress_callback=None):
     # Create Plotly figure with the trace and layout (with border)
     fig = go.Figure(data=traces, layout=layout)
     
-    # Render the figure in Streamlit
-    st.plotly_chart(fig)
+    # Render the figure in Streamlit 
+    st.plotly_chart(fig, config={'displayModeBar': displayModeBar})
 
-    # Clear the progress bar once the work is done
+    # # Clear the progress bar once the work is done
     progress_bar.empty()
 

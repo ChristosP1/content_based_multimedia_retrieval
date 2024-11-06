@@ -268,7 +268,6 @@ def plot_voxel_3d_shape_interface(file_path, pitch=0.01, voxel_size=0.01):
     # Check if the voxelized data already exists
     if os.path.exists(voxel_file_path):
         # Load the saved voxel centers
-        print("Voxelized mesh exists!")
         voxel_centers = np.load(voxel_file_path)
     else:
         # Load the mesh using Trimesh
@@ -297,45 +296,48 @@ def create_techniques_tools_table(stage='prep1'):
         techniques_tools = [
             'Mesh Cleaning', 
             'Subdivision', 
-            'Decimation',
+            'Decimation (30%)',
             'Multiprocessing',
         ]
 
         descriptions = [
-            'The total surface area of the 3D object.',
-            'The maximum distance between any two points in the 3D object.',
-            'Measures how much the shape deviates from being a perfect sphere.',
-            'Measures how much the shape deviates from being a perfect sphere.',
+            'Remove degenerate (zero area) faces, duplicate, unreferenced and infinite (NaN) \
+            vertices, fill holes (missing faces) and fix normals.',
+            'Increase the number of triangles by splitting each triangle into smaller ones.',
+            'Reduces the triangle count by 30%, simplifying the mesh while preserving the overall shape.',
+            'Allocate the meshes in 8-16 processes to speed up the resampling process.',
         ]
         
     elif stage == 'prep2':
         techniques_tools = [
-            'Mesh Cleaning', 
-            'Subdivision', 
-            'Decimation',
+            'Isotropic Remeshing', 
+            'Mesh Cleaning',
             'Multiprocessing',
         ]
 
         descriptions = [
-            'The total surface area of the 3D object.',
-            'The maximum distance between any two points in the 3D object.',
-            'Measures how much the shape deviates from being a perfect sphere.',
-            'Measures how much the shape deviates from being a perfect sphere.',
+            'Adjust triangle shapes and sizes through edge flipping, collapsing, relaxing, and refining, resulting \
+                in a more uniform and well-proportioned mesh with better-quality triangles.',
+            'After the remeshing procedure all the meshes were cleaned exactly like in the previous step.',
+            'Allocate the meshes in 8-16 processes to speed up the remeshing process.',
         ]  
     
     elif stage == 'prep3':
         techniques_tools = [
-            'Mesh Cleaning', 
-            'Subdivision', 
-            'Decimation',
+            'Center at Origin', 
+            'Scale Unit Cube', 
+            'PCA Align.',
+            'Moment Flipping',
             'Multiprocessing',
         ]
 
         descriptions = [
-            'The total surface area of the 3D object.',
-            'The maximum distance between any two points in the 3D object.',
-            'Measures how much the shape deviates from being a perfect sphere.',
-            'Measures how much the shape deviates from being a perfect sphere.',
+            'Reposition the mesh so that its center aligns with the origin, making it location-independent by \
+                translating all vertices based on the centroid.',
+            'Resize mesh to fit within a unit cube, using its largest bounding box dimension as a scaling factor.',
+            'Align the mesh along its principal axes by rotating it based on the directions of maximum variation.',
+            'Flip the mesh along any axis where its "heaviest" portions lie in the negative half.',
+            'Allocate the meshes in 8-16 processes to speed up the normalization process.'
         ]
     
     
@@ -359,7 +361,7 @@ def create_techniques_tools_table(stage='prep1'):
     df = pd.DataFrame(data)
 
     # Display the table in Streamlit
-    st.table(df)
+    create_table_html(df)
     
     
 
@@ -407,11 +409,16 @@ def create_descriptor_table(type="global"):
         ]
 
         descriptions = [
-            'The total volume occupied by the 3D object.',
-            'The total surface area of the 3D object.',
-            'The maximum distance between any two points in the 3D object.',
-            'Measures how much the shape deviates from being a perfect sphere.',
-            'A ratio of volume to surface area that indicates how compact the shape is.',
+            'Angles between randomly chosen triplets of vertices, capture the local curvature and surface \
+                smoothness or sharpness of the mesh.',
+            'Distances from the centroid to random vertices, indicate how spread out or \
+                concentrated the mesh is around its center.',
+            "Distances between pairs of random vertices, reflect the object's overall shape \
+                and point distribution.",
+            'Areas of triangles formed by random vertices, prove insights into \
+                local surface geometry and curvature.',
+            'Volumes of tetrahedrons formed by random vertices, capture the \
+                3D structural complexity of the mesh.',
         ]
 
         # Create a pandas DataFrame to organize the descriptors and their descriptions
@@ -419,7 +426,7 @@ def create_descriptor_table(type="global"):
     df = pd.DataFrame(data)
 
     # Display the table in Streamlit
-    st.table(df)
+    create_table_html(df)
     
 
 def create_spider_plots(df, class1, class2, descriptors):
@@ -479,6 +486,20 @@ def create_spider_plots(df, class1, class2, descriptors):
         st.plotly_chart(fig2, use_container_width=True)
         
 
+def plot_local_desc(image_A3, image_D1, image_D2, image_D3, image_D4):
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(image_A3, caption="A3")
+        st.image(image_D2, caption="D2")
+        st.image(image_D4, caption="D4")
+    with col2:
+        st.image(image_D1, caption="D1")
+        st.image(image_D3, caption="D3")
+    
+    return 1
+
+
 def show_time_elapsed(stage='resampling'):
     times_df = pd.read_csv('outputs/data/times.csv')
     st.markdown(f"### ~ Process time: {times_df[stage].values[0]:.2f} sec  |  {(times_df[stage].values[0]/60):.2f} min ~")
@@ -490,8 +511,97 @@ def show_images_side_by_side(path1, path2):
         st.image(path1, caption="Before norm.")
     with col3:
         st.image(path2, caption="After norm.")
+
+
+def create_table_html(df):
+    # Convert the DataFrame to HTML with additional CSS for better alignment
+        styled_table = df.to_html(index=False, classes="table-style")
+
+        # Add CSS to center-align the headers and adjust table appearance
+        st.markdown("""
+        <style>
+        .table-style {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 0;
+            padding: 0;
+            table-layout: auto;
+            font-family: Arial, sans-serif;
+            font-size:14px;
+        }
+        .table-style th {
+            background-color: #f2f2f2;
+            text-align: left;
+            padding: 5px;
+        }
+        .table-style td {
+            text-align: left;
+            padding: 5px;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+
+        # Display the table
+        st.write(styled_table, unsafe_allow_html=True)
+        
+        
+def show_single_image(img_path, dataset_path):
+    col1, col2 = st.columns([3, 6])
+    with col1:
+        df = pd.read_csv(dataset_path)
+        create_table_html(df)
+    with col2:
+        st.image(img_path, caption="Class Distribution", use_column_width=True)
     
 
+def eval_interactive_scatter_plot(data_path):
+    # Load data
+    data = pd.read_csv(data_path) 
+
+    # Create the interactive scatter plot
+    fig = px.scatter(
+        data,
+        x='mean_recall_regular',
+        y='mean_recall_enhanced',
+        text='obj_class',  # Display class names on hover
+    )
+
+    # Add a line y=x for reference
+    fig.add_shape(
+        type="line",
+        x0=0, y0=0, x1=1, y1=1,
+        line=dict(dash="dash", color="red")
+    )
+
+    fig.update_traces(marker=dict(size=8, color='black'), textposition='top center')
+    fig.update_layout(xaxis_title="Regular Recall", yaxis_title="Enhanced Recall")
+    st.plotly_chart(fig)
+    
+    
+def top_changes_in_recall(data_path):
+    # Load data and calculate change in recall
+    data = pd.read_csv('outputs/eval/combined_recalls.csv')
+    data['recall_change'] = data['mean_recall_enhanced'] - data['mean_recall_regular']
+
+    # Find top 10 classes with greatest positive and negative change
+    top_10_positive_change = data.nlargest(5, 'recall_change')
+    top_10_negative_change = data.nsmallest(5, 'recall_change').sort_values(by=['recall_change'], ascending=False)
+    change_data = pd.concat([top_10_positive_change, top_10_negative_change]).round(2)
+
+    fig = px.bar(
+        change_data,
+        x='obj_class',
+        y='recall_change',
+        color='recall_change',
+        color_continuous_scale='reds',
+        text='recall_change'
+    )
+
+    fig.update_layout(xaxis_title="Class", yaxis_title="Change in Recall")
+    st.plotly_chart(fig)
+        
+
+    
     
 ################################################################################################################################
 ################################################################################################################################
@@ -505,6 +615,12 @@ def presentation():
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
     #++++++++++++++++++++ PREPROCESSING +++++++++++++++++++++#
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+    st.title("Classes and objects")
+    show_single_image("outputs/plots/class_distribution_2.png", "outputs/data/class_distribution_2.csv")
+    
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+    #++++++++++++++++++++ PREPROCESSING +++++++++++++++++++++#
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
     st.title("Preprocessing")
     
     # -------------------- INITIAL DATA -------------------- #
@@ -512,7 +628,7 @@ def presentation():
     original_shapes_data_df = load_data('outputs/shapes_data.csv')
     original_global_statistics_df = load_data('outputs/data/global_statistics_original.csv')
     
-    create_techniques_tools_table(stage='prep1')
+    # create_techniques_tools_table(stage='prep1')
     
     st.markdown("###### ")
     plot_histograms(original_shapes_data_df)
@@ -540,7 +656,7 @@ def presentation():
     original_shapes_data_df = load_data('outputs/shapes_data_remeshed_cleaned.csv')
     original_global_statistics_df = load_data('outputs/data/global_statistics_remeshed_cleaned.csv')
         
-    create_techniques_tools_table(stage='prep1')
+    create_techniques_tools_table(stage='prep2')
     show_time_elapsed('remeshing')
     
     st.markdown("##### ")
@@ -554,15 +670,19 @@ def presentation():
     original_shapes_data_df = load_data('outputs/shapes_data_normalized.csv')
     original_global_statistics_df = load_data('outputs/data/global_statistics_remeshed_cleaned.csv')
         
-    create_techniques_tools_table(stage='prep1')
+    create_techniques_tools_table(stage='prep3')
     show_time_elapsed('normalization')
     
     st.markdown("##### ")
     st.markdown("### Mesh centroids before and after normalization ")
     st.markdown("###### ")
     show_images_side_by_side("outputs/plots/before_norm_centroids_5_final.png", "outputs/plots/after_norm_centroids_5_final.png")
+    st.markdown("###### ")
+    st.markdown("### Mesh Bounding Box Diagonal length before and after normalization ")
+    st.markdown("###### ")
+    show_images_side_by_side("outputs/plots/bb_before_norm.png", "outputs/plots/bb_after_norm.png")
     
-    st.markdown("##### ")
+    # st.markdown("##### ")
     
     # plot_histograms(original_shapes_data_df)
     # show_global_statistics(original_global_statistics_df)
@@ -600,7 +720,7 @@ def presentation():
     st.markdown("---")
     
     # -------------------- LOCAL DESCRIPTORS -------------------- #
-    st.markdown("## 2. Local Descriptors")
+    st.markdown("## 2. Shape Property Descriptors")
     create_descriptor_table("local")
     
     try:
@@ -609,14 +729,26 @@ def presentation():
     except:
         print("Time for local descriptors does not exist")
     
+    st.markdown("### Example of shape property descriptor histogram")
+    a_3 = "local_desc_plots/Bicycle/A3_plot.png"
+    d_1 = "local_desc_plots/Bicycle/D1_plot.png"
+    d_2 = "local_desc_plots/Bicycle/D2_plot.png"
+    d_3 = "local_desc_plots/Bicycle/D3_plot.png"
+    d_4 = "local_desc_plots/Bicycle/D4_plot.png"
 
+    plot_local_desc(a_3, d_1, d_2, d_3, d_4)
+    st.markdown("---")
+    st.markdown("---")
 
+    # -------------------- EVALUATION -------------------- #
+    st.title("Evaluation")
 
-
-
-
-
-
+    st.markdown("### Regular vs. Enhanced Recall by Class")
+    recall_data = 'outputs/eval/combined_recalls.csv'
+    eval_interactive_scatter_plot(recall_data)
+    
+    st.markdown("### Top 5 Increases and Decreases in Recall")
+    top_changes_in_recall(recall_data)
 
 
 

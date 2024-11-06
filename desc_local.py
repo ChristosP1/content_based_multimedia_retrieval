@@ -123,6 +123,7 @@ def compute_fd_bins(data):
         return 10  # Default number of bins if bin width is 0
     return int(np.ceil((data.max() - data.min()) / bin_width))
 
+
 def compute_bins_for_chunk(df_chunk, sample_size, preprocessed_dataset_path):
     """
     Compute the bins for each descriptor in a chunk of the dataset.
@@ -189,6 +190,7 @@ def aggregate_bins(all_bins_list):
     avg_bins = {desc: int(np.mean(aggregated_bins[desc])) for desc in aggregated_bins}
     return avg_bins
 
+
 def compute_all_bins_parallel(preprocessed_shapes_df, sample_size, preprocessed_dataset_path, num_processes=4):
     """
     Compute the bins for all descriptors (A3, D1, D2, D3, D4) across all meshes in parallel.
@@ -218,7 +220,6 @@ def compute_all_bins_parallel(preprocessed_shapes_df, sample_size, preprocessed_
     return avg_bins
 
                       
-                                                
 def compute_local_descriptors(mesh, sample_size, avg_bins, random_seed=42):
     """
     Computes the local descriptors and returns a histogram for each descriptor.

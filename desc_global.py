@@ -318,35 +318,6 @@ def min_max_standardize_column(column):
     return standardized_column, col_min, col_max
 
 
-def standardize_features_min_max(global_descriptors_df):
-    """
-    Standardize global descriptors using min-max scaling.
-    """
-    
-    # List of features to standardize
-    features_to_standardize = ["surface_area", "diameter", "eccentricity", 
-                               "compactness", "rectangularity", "convexity", "sphericity", "elongation"]
-    
-    # Dictionary to save min-max parameters
-    standardization_dict = {"feature": [], "min": [], "max": []}
-    
-    for feature in features_to_standardize:
-        # Apply min-max standardization to each feature's column
-        global_descriptors_df[feature], col_min, col_max = min_max_standardize_column(global_descriptors_df[feature])
-        
-        # Save the min and max values for future reference
-        standardization_dict["feature"].append(feature)
-        standardization_dict["min"].append(col_min)
-        standardization_dict["max"].append(col_max)
-    
-    
-    # Save the min-max parameters
-    standardization_params_df = pd.DataFrame(standardization_dict)
-    standardization_params_df.to_csv('outputs/data/standardization_params_min_max.csv', index=False)
-    
-    return global_descriptors_df
-
-
 def z_score_standardize_and_save_params(global_descriptors_df):
     """
     Standardize global descriptors using z-score normalization and save the parameters.

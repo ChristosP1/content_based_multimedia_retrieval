@@ -5,13 +5,9 @@ import pymeshlab
 import tempfile
 import uuid 
 import pandas as pd
-from sklearn.metrics.pairwise import cosine_similarity
-from pyemd import emd
-from sklearn.metrics import confusion_matrix
-import seaborn as sns
-import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import wasserstein_distance
+from scipy.spatial.distance import euclidean
 
 
 from prep_resampling import clean_mesh, adjust_mesh_complexity
@@ -19,6 +15,7 @@ from prep_remeshing import isotropic_remesh
 from prep_normalizing import *
 from desc_global import *
 from desc_local import *
+
 
 
 ##################################################################################################################
@@ -53,7 +50,7 @@ def pymeshlab_to_trimesh(ms, mesh_index=0):
 
 ##################################################################################################################
 ##################################################################################################################
-def z_score_normalize_input(global_descriptors_df, normalization_params_path):
+def z_score_normalize_desc(global_descriptors_df, normalization_params_path):
     """
     Normalize the input object's global descriptors using saved normalization parameters.
     
@@ -80,146 +77,64 @@ def z_score_normalize_input(global_descriptors_df, normalization_params_path):
     return global_descriptors_df
 
 
+def expand_local_descriptors(local_df):
+    """
+    Expands the local descriptor histograms (A3, D1, D2, D3, D4) into individual columns for each bin.
+    
+    Parameters:
+        local_df (pd.DataFrame): DataFrame containing local descriptors with histogram columns.
+        
+    Returns:
+        pd.DataFrame: A DataFrame with expanded local descriptor columns.
+    """
+    expanded_columns = []
+    
+    for descriptor in ['A3', 'D1', 'D2', 'D3', 'D4']:
+        # Extract the list of bins and create new columns for each bin
+        bins = local_df[descriptor]
+        bins_df = pd.DataFrame(bins.tolist(), columns=[f'{descriptor}_{i+1}' for i in range(len(bins[0]))])
+        expanded_columns.append(bins_df)
+
+    # Concatenate the expanded columns into a single dataframe
+    expanded_df = pd.concat(expanded_columns, axis=1)
+
+    # Return expanded local descriptor dataframe
+    return expanded_df
+
+
+def merge_global_and_local_descriptors(global_descriptors_df, local_descriptors_df, output_file):
+    """
+    Merges global and expanded local descriptors into a single dataframe and saves the result as a CSV file.
+    
+    Parameters:
+        global_desc_file (str): Path to the global descriptors CSV file.
+        local_desc_file (str): Path to the local descriptors CSV file.
+        output_file (str): Path to the output CSV file for saving the merged descriptors.
+    """
+
+    # Debug: Print shapes of both dataframes before merging
+    print(f"- Global Descriptors Shape: {global_descriptors_df.shape}")
+    print(f"- Local Descriptors Shape: {local_descriptors_df.shape}")
+    
+    # Expand the local descriptor histograms into individual columns
+    expanded_local_descriptors_df = expand_local_descriptors(local_descriptors_df)
+
+    # Concatenate file_name + obj_class, global descriptors, and expanded local descriptors
+    merged_df = pd.concat([global_descriptors_df, expanded_local_descriptors_df], axis=1).reset_index(drop=True).round(4)
+
+    # Debug: Print shapes after merging
+    print(f"- Merged Descriptors Shape: {merged_df.shape}")
+    
+    # Save the merged dataframe to a CSV file
+    merged_df.to_csv(output_file, index=False)
+    
+    return merged_df
+    
+
 ##################################################################################################################
 ##################################################################################################################
-def compute_cosine_similarity(global_desc_df, input_mesh_global_descriptor_df):
-    """
-    Compute cosine similarity between the global descriptors of a given mesh
-    and all the meshes in the dataset.
-    
-    Parameters:
-        global_desc_df (pd.DataFrame): DataFrame containing global descriptors of all meshes.
-        mesh_global_descriptor_df (pd.DataFrame): DataFrame containing global descriptors of the input mesh.
-        
-    Returns:
-        pd.Series: Cosine similarity scores between the given mesh and all dataset meshes.
-    """
-    
-    # Preserve the object class and file name for later reference
-    obj_metadata = global_desc_df[['file_name', 'obj_class']]
-    
-    # Drop the columns irrelevant for similarity computation
-    global_desc_df = global_desc_df.drop(columns=['obj_class', 'file_name'])
-    
-    # Convert to numpy array
-    global_desc_data = global_desc_df.to_numpy()
-    
-    # Extract the single mesh global descriptors as a numpy array
-    mesh_descriptor = input_mesh_global_descriptor_df.to_numpy().reshape(1, -1)
-
-    # Sanity check on dimensions (optional, can be removed later)
-    print(f"Input descriptor shape: {input_mesh_global_descriptor_df.shape}")
-    print(f"Dataset descriptor shape: {global_desc_df.shape}")
-    
-    # Compute cosine similarity
-    cosine_sim = cosine_similarity(mesh_descriptor, global_desc_data)
-    
-    # Return the similarity scores along with the file names as a DataFrame
-    similarity_df = pd.DataFrame({
-        'file_name': obj_metadata['file_name'], 
-        'class': obj_metadata['obj_class'],
-        'similarity': cosine_sim[0]
-    })
-
-    # Sort the DataFrame by similarity scores in descending order
-    similarity_df = similarity_df.sort_values(by='similarity', ascending=False).reset_index(drop=True).round(3)
 
 
-    # Return cosine similarity as a Pandas Series
-    return similarity_df
-
-
-def compute_emd_similarity(input_local_desc, dataset_local_desc):
-    """
-    Compute EMD (Earth Mover's Distance) similarity between input and dataset objects based on local descriptors.
-    
-    Parameters:
-        input_local_desc (pd.DataFrame): DataFrame containing local descriptors (A3, D1, D2, D3, D4) for the input object.
-        dataset_local_desc (pd.DataFrame): DataFrame containing local descriptors (A3, D1, D2, D3, D4) for dataset objects.
-        
-    Returns:
-        pd.DataFrame: DataFrame with EMD scores for each object in the dataset.
-    """
-    # Preserve the object class and file name for reference
-    obj_metadata = dataset_local_desc[['file_name', 'obj_class']]
-    
-    print(type(input_local_desc['A3'].values[0]))
-    # Extract the histograms of the input object (as lists)
-    input_histograms = {
-        'A3': input_local_desc['A3'].values[0],
-        'D1': input_local_desc['D1'].values[0],
-        'D2': input_local_desc['D2'].values[0],
-        'D3': input_local_desc['D3'].values[0],
-        'D4': input_local_desc['D4'].values[0]
-    }
-    
-    emd_scores = []
-    
-    # Loop through each object in the dataset and compute EMD for each local descriptor
-    for index, row in dataset_local_desc.iterrows():
-        dataset_histograms = {
-            'A3': eval(row['A3']),
-            'D1': eval(row['D1']),
-            'D2': eval(row['D2']),
-            'D3': eval(row['D3']),
-            'D4': eval(row['D4'])
-        }
-        
-        # Compute EMD for each histogram
-        emd_A3 = wasserstein_distance(input_histograms['A3'], dataset_histograms['A3'])
-        emd_D1 = wasserstein_distance(input_histograms['D1'], dataset_histograms['D1'])
-        emd_D2 = wasserstein_distance(input_histograms['D2'], dataset_histograms['D2'])
-        emd_D3 = wasserstein_distance(input_histograms['D3'], dataset_histograms['D3'])
-        emd_D4 = wasserstein_distance(input_histograms['D4'], dataset_histograms['D4'])
-        
-        total_emd = (emd_A3 + emd_D1 + emd_D2 + emd_D3 + emd_D4) / 5
-        # Combine the EMD results (here we use a simple average, but you can use a weighted sum)
-        total_emd = 0.2 * emd_A3 + 0.2 * emd_D1 + 0.2 * emd_D2 + 0.2 * emd_D3 + 0.2 * emd_D4  # Example of weighted sum
-
-
-        
-        # Append the result to the EMD scores list
-        emd_scores.append(total_emd)
-    
-    # Return a DataFrame with EMD scores along with file names and classes
-    similarity_df = pd.DataFrame({
-        'file_name': obj_metadata['file_name'],
-        'class': obj_metadata['obj_class'],
-        'emd_score': emd_scores
-    })
-    
-    # Sort the DataFrame by EMD score (lower EMD = more similar)
-    similarity_df = similarity_df.sort_values(by='emd_score', ascending=True).reset_index(drop=True).round(3)
-    
-    return similarity_df
-
-
-def compute_combined_similarity(global_similarity_df, local_similarity_df, global_weight=0.4, local_weight=0.6):
-    """
-    Combine global and local similarities with specified weights.
-    
-    Parameters:
-        global_similarity_df (pd.DataFrame): DataFrame containing global similarity scores.
-        local_similarity_df (pd.DataFrame): DataFrame containing local similarity scores (EMD scores).
-        global_weight (float): Weight for the global similarity (default: 0.4).
-        local_weight (float): Weight for the local similarity (default: 0.6).
-        
-    Returns:
-        pd.DataFrame: Final DataFrame containing combined similarity scores.
-    """
-    # Merge global and local similarity DataFrames on 'file_name'
-    combined_df = pd.merge(global_similarity_df, local_similarity_df, on='file_name', how='inner', suffixes=('_global', '_local'))
-    
-    # Normalize EMD scores to turn them into similarity scores (lower EMD = higher similarity)
-    combined_df['emd_similarity'] = 1 / (1 + combined_df['emd_score'])
-    
-    # Compute weighted similarity
-    combined_df['final_similarity'] = global_weight * combined_df['similarity'] + local_weight * combined_df['emd_similarity']
-    
-    # Sort by the final similarity score in descending order
-    combined_df = combined_df.sort_values(by='final_similarity', ascending=False).reset_index(drop=True)
-    
-    return combined_df[['file_name', 'class_global', 'similarity', 'emd_similarity', 'final_similarity']]
 
 
 ##################################################################################################################
@@ -232,7 +147,7 @@ def preprocess_input_mesh(mesh_path):
         mesh = trimesh.load(mesh_path)
         print(f"- Initial shape: Vertices: {len(mesh.vertices)}  |  Faces: {len(mesh.faces)}")
         
-        # 2. Clean, Resample and again clean the mesh
+        # 2. Clean, Resample and clean the mesh
         mesh = clean_mesh(mesh)
         mesh = adjust_mesh_complexity(mesh)
         mesh = clean_mesh(mesh)
@@ -252,50 +167,199 @@ def preprocess_input_mesh(mesh_path):
         # 5. Compute Global descriptors
         input_mesh_global_descriptors_df = pd.DataFrame.from_dict([compute_descriptors(mesh, f"{uuid.uuid1()}")])
         # print(input_mesh_global_descriptors_df.head())
-        input_mesh_global_descriptors_df = z_score_normalize_input(input_mesh_global_descriptors_df, 'outputs/data/standardization_params_z_score.csv')
-        print(input_mesh_global_descriptors_df.head())
+        input_mesh_global_descriptors_df = z_score_normalize_desc(input_mesh_global_descriptors_df, 'outputs/data/standardization_params_z_score.csv')
+        input_mesh_global_descriptors_df.round(4)
+        # print(input_mesh_global_descriptors_df.head())
         
         # 6. Compute Local descriptors
         avg_bins = pd.read_csv('outputs/data/average_bins_local.csv')
-        print(avg_bins)
         input_mesh_local_descriptors_df = pd.DataFrame([compute_local_descriptors(mesh, 4000, avg_bins)])
-        input_mesh_local_descriptors_df = input_mesh_local_descriptors_df.round(4)
-        input_mesh_local_descriptors_df.to_csv("aaa.csv")
-
-        return input_mesh_global_descriptors_df, input_mesh_local_descriptors_df
+                
+        merged_df = merge_global_and_local_descriptors(input_mesh_global_descriptors_df, 
+                                           input_mesh_local_descriptors_df, 
+                                           "outputs/data/input_mesh_combined_descriptors.csv")
         
+        return merged_df
         
     except ValueError as e:
         print(f"Error: {e}")
-        
 
-def find_similar_objects(input_global_desc_df, input_local_desc_df):
+
+##################################################################################################################
+##################################################################################################################
+
+
+def standardize_and_save_similarity_scores(distances_df, global_weight=0.3, local_weight=0.7):
+    """
+    Standardize the descriptor distances using the distance weighting (mean and std) 
+    and combine them into a final similarity score.
+    """
+    # distances_file = "outputs/data/similarity_scores.csv"
+    distance_weights_file = "outputs/data/distance_weighting_params.csv"
+    final_distances_file = "outputs/data/FINAL_distances.csv"
     
+    # distances_df = pd.read_csv(distances_df)
+    weighting_params = pd.read_csv(distance_weights_file)
     
-    # 7. Similarity of Global descriptors
-    print("Find global similarity")
-    global_descriptors_df = pd.read_csv('outputs/data/global_descriptors_standardized.csv')
-    global_similarity_df = compute_cosine_similarity(global_descriptors_df, input_global_desc_df)
+    standardized_distances = pd.DataFrame()
+    standardized_distances['file_name'] = distances_df['file_name']
+    standardized_distances['obj_class'] = distances_df['obj_class']
     
-    # 8. Similarity of Local descriptors
-    print("Find local similarity")
-    local_descriptors_df  = pd.read_csv('outputs/data/local_descriptors.csv')
-    local_similarity_df = compute_emd_similarity(input_local_desc_df, local_descriptors_df)
+    global_descriptors = ["volume", "surface_area", "diameter", "eccentricity", "compactness", 
+                          "rectangularity", "convexity", "sphericity", "elongation"]
+    local_descriptors = ["A3", "D1", "D2", "D3", "D4"]
     
+    standardized_distances_global = []
+    standardized_distances_local = []
+
+    for descriptor in weighting_params['descriptor']:
+        if descriptor in distances_df.columns:
+            mean = weighting_params.loc[weighting_params['descriptor'] == descriptor, 'mean'].values[0]
+            std_dev = weighting_params.loc[weighting_params['descriptor'] == descriptor, 'std'].values[0]
+            
+            standardized_distances[descriptor] = (distances_df[descriptor] - mean) / std_dev
+            
+            if descriptor in global_descriptors:
+                standardized_distances_global.append(standardized_distances[descriptor] * global_weight)
+            elif descriptor in local_descriptors:
+                standardized_distances_local.append(standardized_distances[descriptor] * local_weight)
+    
+    standardized_distances['global_score'] = sum(standardized_distances_global)
+    standardized_distances['local_score'] = sum(standardized_distances_local)
+    
+    standardized_distances['final_score'] = standardized_distances['global_score'] + standardized_distances['local_score']
+    
+    standardized_distances = standardized_distances.sort_values(by='final_score').reset_index(drop=True)
+    
+    standardized_distances.to_csv(final_distances_file, index=False)
+    print(f"Standardized and weighted similarity scores saved to {final_distances_file}")
+    
+    return standardized_distances
+    
+
+def compute_distances(input_df):
+    dataset_file = "outputs/data/combined_descriptors.csv"
+    distances_file = "outputs/data/similarity_scores.csv"
+    
+    # input_df = pd.read_csv(input_file_desc)
+    dataset_df = pd.read_csv(dataset_file)
+    
+    global_features = ["volume", "surface_area", "diameter", "eccentricity", "compactness", 
+                       "rectangularity", "convexity", "elongation"]
+    histograms = ["A3", "D1", "D2", "D3", "D4"]
+    
+    # Filter global descriptors based on their presence in the input_df and dataset_df
+    available_global_features = [feature for feature in global_features if feature in input_df.columns and feature in dataset_df.columns]
+    
+    input_global = input_df[available_global_features]
+    input_local = input_df.drop(columns=global_features, errors='ignore')
+    
+    results = pd.DataFrame({
+        'file_name': dataset_df['file_name'],
+        'obj_class': dataset_df['obj_class']
+    })
+    
+    for feature in available_global_features:
+        input_value = input_global[feature].values[0]
+        results[feature] = dataset_df.apply(lambda row: euclidean([input_value], [row[feature]]), axis=1)
+
+    bin_counts = pd.read_csv('outputs/data/average_bins_local.csv').iloc[0].to_dict()
+
+    for hist in histograms:
+        if all(f"{hist}_{i+1}" in input_local.columns for i in range(int(bin_counts[hist]))):
+            num_bins = int(bin_counts[hist])
+            input_hist_values = input_local[[f"{hist}_{i+1}" for i in range(num_bins)]].values.flatten()
+            
+            results[hist] = dataset_df.apply(lambda row: wasserstein_distance(
+                input_hist_values,
+                row[[f"{hist}_{i+1}" for i in range(num_bins)]].values.flatten()
+            ), axis=1)
+
+    results = results.round(4)
+    results.to_csv(distances_file, index=False)
+    print(f"Distances calculated and saved to {distances_file}")
+    
+    return results
+
+
+def get_dominant_class_items(similar_meshes_df, dominant_class_name):
+    """
+    Filter and return all items of the dominant class from the similar meshes dataframe.
+    
+    Parameters:
+        similar_meshes_df (pd.DataFrame): DataFrame containing similar meshes with
+                                          'obj_class' as one of the columns.
+        dominant_class_name (str): Name of the dominant class to filter on.
+    
+    Returns:
+        pd.DataFrame: A DataFrame containing only items from the dominant class.
+    """
+    # Filter the dataframe for rows matching the dominant class
+    class_items_df = similar_meshes_df[similar_meshes_df['obj_class'] == dominant_class_name]
+    
+    return class_items_df
+
+
+
+def find_dominant_class(standardized_distances, top_n=10):
+    """
+    Compute the most dominant class from the top N retrieved objects by summing the final
+    scores of each class and selecting the one with the lowest cumulative score.
+    
+    Parameters:
+        standardized_distances (pd.DataFrame): DataFrame with standardized distances, 
+                                               including 'file_name', 'obj_class', 
+                                               and 'final_score' columns.
+        top_n (int): Number of top objects to consider (default is 10).
         
-    # Get the top 5 most similar meshes
-    top_similar_meshes_global = global_similarity_df.head(10)
-    top_similar_meshes_local = local_similarity_df.head(10)
+    Returns:
+        str: The most dominant class.
+    """
+    # Select the top N objects based on final score
+    top_results = standardized_distances.head(top_n)
     
-    final_similarity_df = compute_combined_similarity(global_similarity_df, local_similarity_df, global_weight=0.5, local_weight=0.5)
-    top_similar_meshes = final_similarity_df.head(10)
+    # Group by class and sum the final scores within each class
+    class_scores = top_results.groupby('obj_class')['final_score'].sum()
+    print(class_scores)
+    sorted_scores = class_scores.sort_values()
     
+    most_dominant_class = sorted_scores.index[0]
+    second_dominant_class = sorted_scores.index[1] if len(sorted_scores) > 1 else None
     
-    return top_similar_meshes_global, top_similar_meshes_local, top_similar_meshes
+    dominant_class_score = sorted_scores.iloc[0]
+    second_class_score = sorted_scores.iloc[1] if second_dominant_class else float('inf')
+    print(dominant_class_score)
+    print(second_class_score)
+    
+     # Check if the most dominant class has at least twice the "dominance" (lower score) compared to the second
+    if dominant_class_score <= 2 * second_class_score:
+        print(dominant_class_score, " < ", 2 * second_class_score)
+        return most_dominant_class
+    else:
+        return False
+
 
 
 if __name__ == "__main__":
-    preprocess_input_mesh("datasets/dataset_medium/Biplane/D00132.obj")
+    # File paths
+    input_desc = "outputs/data/input_mesh_combined_descriptors.csv"
+    dataset_desc = "outputs/data/combined_descriptors.csv"
+    distances_file = "outputs/data/similarity_scores.csv"
+    distance_weights_file = "outputs/data/distance_weighting_params.csv"
+    final_distances_file = "outputs/data/FINAL_distances.csv"
+    
+    # Preprocess input and compute Global and Local descriptors
+    # preprocess_input_mesh("datasets/dataset_snippet_medium/Hand/m327.obj")
+    # preprocess_input_mesh("datasets/dataset_snippet_medium/Car/D00377.obj")
+    merged_df = preprocess_input_mesh("datasets/dataset_snippet_medium/Bottle/m482.obj")
+    
+    # Compute distances
+    distances = compute_distances(merged_df)
+    
+    # Standardize dinstances
+    standardize_and_save_similarity_scores(distances)
+    
+    
 
 
 

@@ -1,0 +1,15 @@
+descriptor,mean,std
+volume,1.0678,0.9245
+surface_area,1.067,0.9254
+diameter,0.988,1.0094
+eccentricity,0.6462,1.2559
+compactness,0.9814,1.0157
+rectangularity,1.0499,0.9448
+convexity,1.0771,0.9136
+sphericity,0.8704,1.1123
+elongation,1.0461,0.949
+A3,0.0096,0.0058
+D1,0.0121,0.0071
+D2,0.0073,0.0039
+D3,0.0075,0.0046
+D4,0.0104,0.006

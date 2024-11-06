@@ -96,8 +96,9 @@ def analyze_shape(filepath=False, mesh=None):
             "min_bound": aabb_min.tolist(),  # Min corner of the bounding box
             "max_bound": aabb_max.tolist()   # Max corner of the bounding box
         }
+        centroid = mesh.centroid.tolist()
 
-        is_manifold = mesh.is_watertight  # Has holes or not
+        is_watertight = mesh.is_watertight  # Has holes or not
         outlier_low = True if num_vertices <= LOW_THRESHOLD else False  # Low outlier
         outlier_high = True if num_vertices >= HIGH_THRESHOLD else False  # High outlier
 
@@ -107,7 +108,8 @@ def analyze_shape(filepath=False, mesh=None):
             "faces": num_faces,
             "face_type": face_type,
             "bounding_box": bounding_box,
-            "is_manifold": is_manifold,
+            "centroid": centroid,
+            "is_watertight": is_watertight,
             "outlier_low": outlier_low,
             "outlier_high": outlier_high
         }
@@ -161,7 +163,7 @@ def compute_and_save_statistics(shapes_data_df, statistics_csv_path='outputs/dat
 
     # Compute other statistics
     total_shapes = shapes_data_df.shape[0]
-    is_manifold_count = shapes_data_df[shapes_data_df['is_manifold'] == True]['is_manifold'].count() 
+    is_watertight_count = shapes_data_df[shapes_data_df['is_watertight'] == True]['is_watertight'].count() 
     outlier_low_count = shapes_data_df[shapes_data_df['outlier_low'] == True]['outlier_low'].count()
     outlier_high_count = shapes_data_df[shapes_data_df['outlier_high'] == True]['outlier_high'].count()
 
@@ -172,7 +174,7 @@ def compute_and_save_statistics(shapes_data_df, statistics_csv_path='outputs/dat
         "std_vertices": std_vertices,
         "mean_faces": mean_faces,
         "std_faces": std_faces,
-        "is_manifold": is_manifold_count,
+        "is_watertight": is_watertight_count,
         "outlier_low_count": outlier_low_count,
         "outlier_high_count": outlier_high_count
     }
@@ -522,21 +524,4 @@ if __name__ == "__main__":
     times['resampling'] = end_resampling - start_resampling
     times_df = pd.DataFrame([times])
     times_df.to_csv(times_path, index=False)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

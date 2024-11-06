@@ -24,7 +24,7 @@ def shape_viewer(original_db_path, resampled_db_path):
     selected_shape = st.selectbox("Choose a shape file", shape_files)
     
     # Display selected shape info
-    st.text(f"Displaying shape: '{selected_shape}'   |   Category: '{selected_category}'")
+    # st.text(f"Displaying shape: '{selected_shape}'   |   Category: '{selected_category}'")
     # st.text(f"Category: {selected_category}")
 
     # Get full path to the selected shape
@@ -34,5 +34,5 @@ def shape_viewer(original_db_path, resampled_db_path):
     rendering_mode = st.radio("Rendering Mode", options=["Shaded", "Shaded + Edges", "Wireframe"], horizontal=True)
     
     # Button to visualize the shape
-    if st.button("Visualize Shape"):
+    if st.button("Visualize Shape", type="primary"):
         visualize_3d_shape(shape_path, rendering_mode)
