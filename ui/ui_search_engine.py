@@ -86,6 +86,7 @@ def search():
         st.session_state['input_desc_df'] = None
     if 'similar_meshes' not in st.session_state:
         st.session_state['similar_meshes'] = None
+    dominant_class = False
     enhanced_search = False
 
     # Check if file is uploaded
