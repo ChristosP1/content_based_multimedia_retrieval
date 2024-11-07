@@ -94,7 +94,7 @@ def search():
         
         if st.session_state['input_desc_df'] is None:
             try:
-                st.write("Start preprocessing")
+                # st.write("Start preprocessing")
                 # Read the uploaded file into trimesh
                 mesh = trimesh.load(io.BytesIO(uploaded_file.getvalue()), file_type='obj')
                 

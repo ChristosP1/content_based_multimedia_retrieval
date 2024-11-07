@@ -410,19 +410,74 @@ def create_descriptor_table(type="global"):
 
         descriptions = [
             'Angles between randomly chosen triplets of vertices, capture the local curvature and surface \
-                smoothness or sharpness of the mesh.',
+                smoothness or sharpness of the mesh. Samples: 4000.',
             'Distances from the centroid to random vertices, indicate how spread out or \
-                concentrated the mesh is around its center.',
+                concentrated the mesh is around its center. Samples: 4000.',
             "Distances between pairs of random vertices, reflect the object's overall shape \
-                and point distribution.",
+                and point distribution. Samples: 4000.",
             'Areas of triangles formed by random vertices, prove insights into \
-                local surface geometry and curvature.',
+                local surface geometry and curvature. Samples: 4000.',
             'Volumes of tetrahedrons formed by random vertices, capture the \
-                3D structural complexity of the mesh.',
+                3D structural complexity of the mesh. Samples: 4000.',
         ]
 
         # Create a pandas DataFrame to organize the descriptors and their descriptions
         data = {'Global Descriptor': descriptors, 'Description': descriptions}
+        
+        
+        
+    elif type == "search":
+        # Define the global descriptors and their descriptions
+        descriptors = [
+            'Euclidean distance', 
+            "Earth Mover's dist.", 
+            'Distance Weighting', 
+        ]
+
+        descriptions = [
+            'Measure the shortest distance between two points in a multi-dimensional space. Direct \
+                differences between the feature values of objects',
+            'EMD, or Wasserstein distance to compare histograms. EMD measures how one histogram (distribution) \
+                can be transformed into another.',
+            "Standardize the distance values before combining them. Ensures that distances from different \
+                descriptors contribute fairly to the overall similarity score.",
+        ]
+
+        # Create a pandas DataFrame to organize the descriptors and their descriptions
+        data = {'Technique': descriptors, 'Description': descriptions}
+        
+    df = pd.DataFrame(data)
+
+    # Display the table in Streamlit
+    create_table_html(df)
+    
+    
+def create_search_engine_table(stage="search"):
+    """
+    Create and display a table with global descriptors and their descriptions.
+    """  
+
+    st.markdown("### Techniques used")
+    if stage == "search":
+        # Define the global descriptors and their descriptions
+        descriptors = [
+            'Euclidean distance', 
+            "Earth Mover's dist.", 
+            'Distance Weighting', 
+        ]
+
+        descriptions = [
+            'Measure the shortest distance between two points in a multi-dimensional space. Direct \
+                differences between the feature values of objects',
+            'EMD, or Wasserstein distance to compare histograms. EMD measures how one histogram (distribution) \
+                can be transformed into another.',
+            "Standardize the distance values before combining them. Ensures that distances from different \
+                descriptors contribute fairly to the overall similarity score.",
+        ]
+
+        # Create a pandas DataFrame to organize the descriptors and their descriptions
+        data = {'Technique': descriptors, 'Description': descriptions}
+        
     df = pd.DataFrame(data)
 
     # Display the table in Streamlit
@@ -601,7 +656,95 @@ def top_changes_in_recall(data_path):
     st.plotly_chart(fig)
         
 
+def create_donut_charts(value1, value2):
+    """
+    Create two side-by-side donut pie charts with Plotly showing input values as percentages at the center.
     
+    Parameters:
+        value1 (float): Value for the first chart (0-100).
+        value2 (float): Value for the second chart (0-100).
+    """
+    # Ensure values are capped at 100 for valid percentage representation
+    value1 = min(value1, 100)
+    value2 = min(value2, 100)
+
+    # Data for the charts
+    chart1_data = [value1, 100 - value1]
+    chart2_data = [value2, 100 - value2]
+
+    # Labels for the charts
+    labels = ['Value', '']  # The second label is empty to hide it
+
+    # Create first donut chart
+    fig1 = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=chart1_data,
+        hole=0.75,
+        marker_colors=['#b00000', '#f7f7f7'],
+        textinfo='none',  # Hide text on the slices
+        sort=False,  # Keep slices in the same position
+        rotation=0  # Start slices at the same position
+    )])
+    fig1.update_layout(
+        title_text="Regular search",
+        showlegend=False,
+        annotations=[dict(
+            text=f'{value1}%',  # Display percentage at the center
+            x=0.5, y=0.5, font_size=25, showarrow=False
+        )],
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+
+    # Create second donut chart
+    fig2 = go.Figure(data=[go.Pie(
+        labels=labels,
+        values=chart2_data,
+        hole=0.75,
+        marker_colors=['#b00000', '#f7f7f7'],
+        textinfo='none',  # Hide text on the slices
+        sort=False,  # Keep slices in the same position
+        rotation=0  # Start slices at the same position
+    )])
+    fig2.update_layout(
+        title_text="Enhanced search",
+        showlegend=False,
+        annotations=[dict(
+            text=f'{value2}%',  # Display percentage at the center
+            x=0.5, y=0.5, font_size=25, showarrow=False
+        )],
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+
+    # Display charts side by side in Streamlit
+    col1, col2, col3 = st.columns([2,1.2,2])
+    with col1:
+        st.plotly_chart(fig1, use_container_width=True)
+    with col3:
+        st.plotly_chart(fig2, use_container_width=True)
+
+
+def display_custom_font_text(text, font_family="Brush Script MT"):
+    """
+    Display text with a custom font in Streamlit.
+
+    Parameters:
+        text (str): The text to display.
+        font_url (str): URL to import the custom font (e.g., from Google Fonts or another source).
+        font_family (str): The name of the font family to use.
+    """
+    # HTML and CSS code for custom font
+    custom_html = f"""
+    <style>
+    .custom-font {{
+        font-family: '{font_family}', sans-serif;
+        font-size: 64px;
+        color: black;
+    }}
+    </style>
+    <div class="custom-font">{text}</div>
+    """
+    st.markdown(custom_html, unsafe_allow_html=True)
+
     
 ################################################################################################################################
 ################################################################################################################################
@@ -739,18 +882,34 @@ def presentation():
     plot_local_desc(a_3, d_1, d_2, d_3, d_4)
     st.markdown("---")
     st.markdown("---")
+    
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+    #+++++++++++++++++++++ SEARCH ENGINE ++++++++++++++++++++#
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+    st.title("Search Engine")
+    create_search_engine_table(stage='search')
 
-    # -------------------- EVALUATION -------------------- #
+    st.markdown("---")
+    st.markdown("---")
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
+    #++++++++++++++++++++++ EVALUATION ++++++++++++++++++++++#
+    #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
     st.title("Evaluation")
 
     st.markdown("### Regular vs. Enhanced Recall by Class")
     recall_data = 'outputs/eval/combined_recalls.csv'
     eval_interactive_scatter_plot(recall_data)
+    st.markdown("##### ")
     
     st.markdown("### Top 5 Increases and Decreases in Recall")
     top_changes_in_recall(recall_data)
+    st.markdown("##### ")
+    
+    st.markdown("### Total recall: regular vs enhanced (first 10 objects)")
+    create_donut_charts(41.57, 63.52)
 
-
+    st.markdown("---")
+    display_custom_font_text("The end")
 
 
 
