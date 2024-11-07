@@ -888,6 +888,13 @@ def presentation():
     #++++++++++++++++++++++++++++++++++++++++++++++++++++++++#
     st.title("Search Engine")
     create_search_engine_table(stage='search')
+    
+    st.markdown("### Search engine video")
+    col1, col2, col3 = st.columns([1,10,1])
+    with col2:
+        st.video("https://www.youtube.com/watch?v=XFmuaRAbRew")
+    
+    st.page_link("https://www.youtube.com/watch?v=XFmuaRAbRew", label="video link", icon="🔗")
 
     st.markdown("---")
     st.markdown("---")
