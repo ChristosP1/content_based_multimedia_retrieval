@@ -544,7 +544,7 @@ The resulting normalized histogram represents the distribution of tetrahedron vo
 
 
 
-## 8. Retrieval
+# Retrieval
 
 
 

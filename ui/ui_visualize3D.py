@@ -93,7 +93,7 @@ def convert_mesh_to_plotly(mesh, rendering_mode, progress_callback=None):
             j=triangles[:, 1],  # Second vertex index of triangle
             k=triangles[:, 2],  # Third vertex index of triangle
             color='#ffc72e',  # Mesh color
-            opacity=0.5,  # Set mesh transparency
+            opacity=1,  # Set mesh transparency
             flatshading=True
         )
     
@@ -156,9 +156,9 @@ def visualize_3d_shape(filepath, rendering_mode, progress_callback=None, width=7
         width=width,  # Set the width of the plot
         height=height,  # Set the height of the plot
         scene=dict(
-            xaxis=dict(showbackground=False, showgrid=True, zeroline=False, showspikes=False),
-            yaxis=dict(showbackground=False, showgrid=True, zeroline=False, showspikes=False),
-            zaxis=dict(backgroundcolor="#f3f4f5", showbackground=True, showgrid=True, zeroline=False, showspikes=False),
+            xaxis=dict(showbackground=False, showgrid=False, zeroline=False, showspikes=False),
+            yaxis=dict(showbackground=False, showgrid=False, zeroline=False, showspikes=False),
+            zaxis=dict(backgroundcolor="#f3f4f5", showbackground=False, showgrid=False, zeroline=False, showspikes=False),
             aspectmode='data'
         ),
         # Add a rectangular shape (border) around the 3D chart area

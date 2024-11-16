@@ -499,7 +499,7 @@ def run_global_descriptors_parallel(preprocessed_shapes_df, preprocessed_dataset
 def main():
     """Main function to load data, compute descriptors, and save results."""
     
-    PREPROCESSED_DATASET_PATH = 'datasets/dataset_snippet_medium_normalized'
+    PREPROCESSED_DATASET_PATH = 'datasets/dataset_original_normalized'
     OUTPUTS_DATA_PATH = 'outputs/data'
     
     preprocessed_dataset_csv_path = 'outputs/shapes_data_normalized.csv'

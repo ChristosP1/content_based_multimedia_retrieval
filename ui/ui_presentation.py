@@ -791,7 +791,7 @@ def presentation():
     st.markdown("##### ")
     plot_histograms(original_shapes_data_df)
     show_global_statistics(original_global_statistics_df)
-    plot_3d_shape_interface('datasets/dataset_snippet_medium_resampled_cleaned/Car/m1548.obj')
+    plot_3d_shape_interface('datasets/dataset_original_resampled_cleaned/Car/m1548.obj')
     st.markdown("---")
     
     # -------------------- REMESHED DATA -------------------- #
@@ -805,7 +805,7 @@ def presentation():
     st.markdown("##### ")
     plot_histograms(original_shapes_data_df)
     show_global_statistics(original_global_statistics_df)
-    plot_3d_shape_interface('datasets/dataset_snippet_medium_remeshed_cleaned/Car/m1548.obj')
+    plot_3d_shape_interface('datasets/dataset_original_remeshed_cleaned/Car/m1548.obj')
     st.markdown("---")
     
     # -------------------- NORMALIZED DATA -------------------- #
@@ -830,7 +830,7 @@ def presentation():
     # plot_histograms(original_shapes_data_df)
     # show_global_statistics(original_global_statistics_df)
     
-    plot_3d_shape_interface('datasets/dataset_snippet_medium_normalized/Car/m1548.obj')
+    plot_3d_shape_interface('datasets/dataset_original_normalized/Car/m1548.obj')
     st.markdown("---")
     st.markdown("---")
     
@@ -859,7 +859,7 @@ def presentation():
     
     st.markdown("### ")
     st.markdown("### Solution for the watertight meshes: Voxelization")
-    plot_voxel_3d_shape_interface('datasets/dataset_snippet_medium_normalized/Car/m1548.obj')
+    plot_voxel_3d_shape_interface('datasets/dataset_original_normalized/Car/m1548.obj')
     st.markdown("---")
     
     # -------------------- LOCAL DESCRIPTORS -------------------- #

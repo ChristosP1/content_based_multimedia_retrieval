@@ -23,7 +23,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s]: %(m
 logger = logging.getLogger()
 
 # NORMALIZED_SHAPES_PATH = 'datasets/dataset_snippet_small_normalized'
-NORMALIZED_SHAPES_PATH = 'datasets/dataset_snippet_medium_normalized'
+NORMALIZED_SHAPES_PATH = 'datasets/dataset_original_normalized'
 
 OUTPUT_PATH = 'outputs'
 OUTPUTS_DATA_PATH = 'outputs/data'

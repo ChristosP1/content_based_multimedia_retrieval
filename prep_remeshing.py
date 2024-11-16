@@ -20,8 +20,8 @@ logger = logging.getLogger()
 
 
 # REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_small_remeshed'
-REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_medium_remeshed'
-CLEANED_REMESHED_SHAPES_PATH = 'datasets/dataset_snippet_medium_remeshed_cleaned'
+REMESHED_SHAPES_PATH = 'datasets/dataset_original_remeshed'
+CLEANED_REMESHED_SHAPES_PATH = 'datasets/dataset_original_remeshed_cleaned'
 
 OUTPUT_PATH = 'outputs'
 OUTPUTS_DATA_PATH = 'outputs/data'

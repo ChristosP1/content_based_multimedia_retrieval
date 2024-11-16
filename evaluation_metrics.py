@@ -100,138 +100,71 @@ def standardize_and_save_similarity_scores(distances_df, global_weight=0.3, loca
     return standardized_distances
 
 
-def get_dominant_class_items(similar_meshes_df, dominant_class_name):
-    """
-    Filter and return all items of the dominant class from the similar meshes dataframe.
-    
-    Parameters:
-        similar_meshes_df (pd.DataFrame): DataFrame containing similar meshes with
-                                          'obj_class' as one of the columns.
-        dominant_class_name (str): Name of the dominant class to filter on.
-    
-    Returns:
-        pd.DataFrame: A DataFrame containing only items from the dominant class.
-    """
-    # Filter the dataframe for rows matching the dominant class
-    class_items_df = similar_meshes_df[similar_meshes_df['obj_class'] == dominant_class_name]
-    
-    return class_items_df
-
-
-
-def find_dominant_class(standardized_distances, top_n=10):
-    """
-    Compute the most dominant class from the top N retrieved objects by summing the final
-    scores of each class and selecting the one with the lowest cumulative score.
-    
-    Parameters:
-        standardized_distances (pd.DataFrame): DataFrame with standardized distances, 
-                                               including 'file_name', 'obj_class', 
-                                               and 'final_score' columns.
-        top_n (int): Number of top objects to consider (default is 10).
-        
-    Returns:
-        str: The most dominant class.
-    """
-    # Select the top N objects based on final score
-    top_results = standardized_distances.head(top_n)
-    
-    # Group by class and sum the final scores within each class
-    class_scores = top_results.groupby('obj_class')['final_score'].sum()
-    print(class_scores)
-    sorted_scores = class_scores.sort_values()
-    
-    most_dominant_class = sorted_scores.index[0]
-    second_dominant_class = sorted_scores.index[1] if len(sorted_scores) > 1 else None
-    
-    dominant_class_score = sorted_scores.iloc[0]
-    second_class_score = sorted_scores.iloc[1] if second_dominant_class else float('inf')
-    print(dominant_class_score)
-    print(second_class_score)
-    
-     # Check if the most dominant class has at least twice the "dominance" (lower score) compared to the second
-    if dominant_class_score <= 1.5 * second_class_score:
-        print(dominant_class_score, " < ", 1.5 * second_class_score)
-        return most_dominant_class
-    else:
-        return False
-
-
 def process_single_object(args):
-    """Process a single object in the dataset for both regular and enhanced recall."""
-    row, class_counts = args
+    """Process a single object in the dataset to find Precision and Recall."""
+    row, class_counts, total_items  = args
     input_desc_df = row.to_frame().transpose()
 
     # Regular search
     distances = compute_distances(input_desc_df)
     similar_meshes = standardize_and_save_similarity_scores(distances)
-    top_10_regular = similar_meshes.head(10)
 
-    # Calculate regular recall
+    # Adjust number of retrieved objects to match the class count
+    num_retrieved = class_counts[row['obj_class']]
+    top_retrieved = similar_meshes.head(num_retrieved)
+    top_10_retrieved = similar_meshes.head(10)
+
+    # Calculate precision and recall
     input_class = row['obj_class']
-    num_same_class_regular = top_10_regular[top_10_regular['obj_class'] == input_class].shape[0]
-    recall_regular = num_same_class_regular / class_counts[input_class] if class_counts[input_class] > 0 else 0
+    num_same_class = top_retrieved[top_retrieved['obj_class'] == input_class].shape[0]
+    same_class_top_10 = top_10_retrieved[top_10_retrieved['obj_class'] == input_class].shape[0]
+    num_different_class = top_retrieved[top_retrieved['obj_class'] != input_class].shape[0]
+    
+    TP = num_same_class
+    TP_10 = num_same_class
+    
+    FP = num_different_class
+    
+    FN = class_counts[input_class] - TP
+    FN_10 = class_counts[input_class] - TP_10
+    
+    TN = total_items - (TP + FP + FN)
+    TN_10 = total_items - (TP_10 + FP + FN_10)
+    
+    precision = num_same_class / num_retrieved if num_retrieved > 0 else 0  
+    precision_10 = same_class_top_10 / 10  
+    recall = num_same_class / class_counts[input_class] if class_counts[input_class] > 0 else 0
+    
+    # Calculate accuracy
+    accuracy = (TP + TN) / (TP + FP + FN + TN) if (TP + FP + FN + TN) > 0 else 0
+    accuracy_10 = (TP_10 + TN_10) / (TP_10 + FP + FN_10 + TN_10) if (TP_10 + FP + FN_10 + TN_10) > 0 else 0
 
-    # Enhanced search
-    dominant_class = find_dominant_class(similar_meshes)
-    if dominant_class:
-        dominant_class_items = get_dominant_class_items(similar_meshes, dominant_class)
-        top_10_enhanced = dominant_class_items.head(10)
-    else:
-        top_10_enhanced = top_10_regular
-
-    # Calculate enhanced recall
-    num_same_class_enhanced = top_10_enhanced[top_10_enhanced['obj_class'] == input_class].shape[0]
-    recall_enhanced = num_same_class_enhanced / class_counts[input_class] if class_counts[input_class] > 0 else 0
-
-    return input_class, recall_regular, recall_enhanced
+    return row['file_name'], input_class, precision, precision_10, recall, accuracy, accuracy_10
 
 
-def evaluate_retrieval_engine_with_class_normalization(descriptors_file, output_csv_regular, output_csv_enhanced):
+def evaluate_retrieval_engine(descriptors_file, output_csv):
     # Load the dataset descriptors
     dataset_df = pd.read_csv(descriptors_file)
     
     # Count the number of objects per class in the dataset
     class_counts = dataset_df['obj_class'].value_counts().to_dict()
+    all_items = len(dataset_df.index)
     
     # Use multiprocessing to process each object in the dataset
     with Pool() as pool:
         results = pool.map(
             process_single_object,
-            [(row, class_counts) for _, row in dataset_df.iterrows()]
+            [(row, class_counts, all_items) for _, row in dataset_df.iterrows()]
         )
     
-    # Initialize dictionaries to store per-class recall
-    recall_per_class_regular = defaultdict(list)
-    recall_per_class_enhanced = defaultdict(list)
-
-    # Process results
-    for input_class, recall_regular, recall_enhanced in results:
-        recall_per_class_regular[input_class].append(recall_regular)
-        recall_per_class_enhanced[input_class].append(recall_enhanced)
-
-    # Calculate mean recall per class for regular and enhanced search
-    mean_recall_per_class_regular = {cls: sum(recalls) / len(recalls) for cls, recalls in recall_per_class_regular.items()}
-    mean_recall_per_class_enhanced = {cls: sum(recalls) / len(recalls) for cls, recalls in recall_per_class_enhanced.items()}
-
     # Save results to CSV
-    regular_df = pd.DataFrame.from_dict(mean_recall_per_class_regular, orient='index', columns=['mean_recall_regular']).round(2)
-    regular_df.index.name = 'obj_class'
-    enhanced_df = pd.DataFrame.from_dict(mean_recall_per_class_enhanced, orient='index', columns=['mean_recall_enhanced']).round(2)
-    enhanced_df.index.name = 'obj_class'
+    results_df = pd.DataFrame(results, columns=['file_name', 'obj_class', 'precision', 'precision_10', 'recall', 'accuracy', 'accuracy_10']).round(2)
+    results_df.to_csv(output_csv, index=False)
     
-    enhanced_col = enhanced_df['mean_recall_enhanced']
-    combined_recalls = pd.concat([regular_df, enhanced_col], axis=1)
-    
-    regular_df.to_csv(output_csv_regular)
-    enhanced_df.to_csv(output_csv_enhanced)
-    combined_recalls.to_csv('outputs/eval/combined_recalls.csv')
-    
-    print(f"Evaluation results saved with class-normalized recall: \n- Regular search: {output_csv_regular}\n- Enhanced search: {output_csv_enhanced}")
+    print(f"Evaluation results saved to {output_csv}")
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     descriptors_file = "outputs/data/combined_descriptors.csv"
-    output_csv_regular = "outputs/eval/evaluation_results_regular.csv"
-    output_csv_enhanced = "outputs/eval/evaluation_results_enhanced.csv"
-    evaluate_retrieval_engine_with_class_normalization(descriptors_file, output_csv_regular, output_csv_enhanced)
+    output_csv = "outputs/eval/evaluation_results.csv"
+    evaluate_retrieval_engine(descriptors_file, output_csv)

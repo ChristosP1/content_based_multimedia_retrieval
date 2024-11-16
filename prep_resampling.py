@@ -48,10 +48,10 @@ OUTPUTS_PLOTS_PATH = 'outputs/plots'
 # DATASET_PATH = 'datasets/dataset_snippet_small'
 # RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_small_resampled'
 
-DATASET_PATH = 'datasets/dataset_snippet_medium'
-CLEANED_SHAPES_PATH = 'datasets/dataset_snippet_medium_cleaned'
-RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_medium_resampled'
-CLEANED_RESAMPLED_SHAPES_PATH = 'datasets/dataset_snippet_medium_resampled_cleaned'
+DATASET_PATH = 'datasets/dataset_original'
+CLEANED_SHAPES_PATH = 'datasets/dataset_original_cleaned'
+RESAMPLED_SHAPES_PATH = 'datasets/dataset_original_resampled'
+CLEANED_RESAMPLED_SHAPES_PATH = 'datasets/dataset_original_resampled_cleaned'
 
 
 

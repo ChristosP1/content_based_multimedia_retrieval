@@ -44,8 +44,8 @@ def merge_global_and_local_descriptors(global_desc_file, local_desc_file, output
     local_descriptors_df = pd.read_csv(local_desc_file)
 
     # Debug: Print shapes of both dataframes before merging
-    print(f"Global Descriptors Shape: {global_descriptors_df.shape}")
-    print(f"Local Descriptors Shape: {local_descriptors_df.shape}")
+    # print(f"Global Descriptors Shape: {global_descriptors_df.shape}")
+    # print(f"Local Descriptors Shape: {local_descriptors_df.shape}")
     
     # Find the common file names between global and local descriptors
     common_files = set(global_descriptors_df['file_name']).intersection(set(local_descriptors_df['file_name']))
@@ -67,11 +67,11 @@ def merge_global_and_local_descriptors(global_desc_file, local_desc_file, output
     merged_df = pd.concat([file_and_class_df, global_descriptors_df, expanded_local_descriptors_df], axis=1).sort_values(by=['obj_class']).reset_index(drop=True)
 
     # Debug: Print shapes after merging
-    print(f"Merged Descriptors Shape: {merged_df.shape}")
+    # print(f"Merged Descriptors Shape: {merged_df.shape}")
     
     # Save the merged dataframe to a CSV file
     merged_df.to_csv(output_file, index=False)
-    print(f"Descriptors merged and saved to {output_file}")
+    # print(f"Descriptors merged and saved to {output_file}")
     
 
 def compute_pairwise_distances_single_value(df, feature_name):
@@ -111,7 +111,7 @@ def save_standardization_params(feature, mean, std, output_path):
     
     # Append it to the CSV file
     new_entry.to_csv(output_path, mode='a', header=not os.path.exists(output_path), index=False)
-    print(f"Saved {feature} to {output_path}")
+    # print(f"Saved {feature} to {output_path}")
     
 
 def compute_pairwise_distances_histogram(df, feature_prefix):

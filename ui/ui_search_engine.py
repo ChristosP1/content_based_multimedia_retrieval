@@ -36,7 +36,7 @@ def display_3d_views_for_top_objects(df, rendering_mode="Shaded", top_objects_nu
                     obj_class = obj_data['obj_class']
                         
                     # Construct the path for each .obj file
-                    obj_path = f"datasets/dataset_snippet_medium_normalized/{obj_class}/{file_name}"
+                    obj_path = f"datasets/dataset_original_normalized/{obj_class}/{file_name}"
 
                     # Display the file name and class
                     col.write(f"Object: {file_name} (Class: {obj_class})")
@@ -63,7 +63,7 @@ def display_3d_views_for_top_objects(df, rendering_mode="Shaded", top_objects_nu
                     obj_class = obj_data['obj_class']
                         
                     # Construct the path for each .obj file
-                    obj_path = f"datasets/dataset_snippet_medium_normalized/{obj_class}/{file_name}"
+                    obj_path = f"datasets/dataset_original_normalized/{obj_class}/{file_name}"
 
                     # Display the file name and class
                     col.write(f"Object: {file_name} (Class: {obj_class})")
@@ -127,7 +127,7 @@ def search():
         
     with col1:   
         if uploaded_file:
-            enhanced_search = st.toggle("Enhanced search")
+            # enhanced_search = st.toggle("Enhanced search")
             if st.button("Find Similar Shapes", type="primary"):
                 if st.session_state['input_desc_df'] is not None:
                     # Compute distances and save results in session state
