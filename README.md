@@ -1,5 +1,6 @@
 # Content-Based Multimedia Retrieval
-
+The reposirtory is complete and the UI can be ran immediately without applying preprocessing.
+In case you want to run the whole process from scratch, here is the manual:
 ## How to Run the Code
 
 ### Preprocessing and Evaluation
